@@ -1,16 +1,13 @@
-import * as def from "./def.ts";
+import { assertUnreachable } from "./assert.ts";
+import { fromDef, Struct, StructDef, StructValues, Value } from "./def.ts";
 
-export function structs(structs: def.Struct[]): string {
-  return structs.map(genStruct).join("\n");
-}
-
-function assertUnreachable(v: never): never {
-  throw new Error(`${v} was not never`);
+export function structs(structs: StructDef[]): string {
+  return structs.map(fromDef).map(genStruct).join("\n");
 }
 
 type Dependency =
-  | { tag: "object"; name: string; value: def.StructValues }
-  | { tag: "array"; name: string; value: def.StructValues };
+  | { tag: "struct"; name: string; value: Value & { tag: "struct" } }
+  | { tag: "array"; name: string; value: Value };
 
 function pascalCase(name: string): string {
   const chars = name.split("").toReversed();
@@ -37,40 +34,52 @@ function dependencyName(typePrefix: string, key: string): string {
   return `${typePrefix}${pascalCase(key)}`;
 }
 
-function calculateDependencies(
-  values: def.StructValues,
-  typePrefix: string,
+function structValueDependency(
+  prefix: string,
+  value: StructValues,
+) {
+  return Object.entries(value)
+    .flatMap(([key, value]) =>
+      buildDependency(value, dependencyName(prefix, key))
+    );
+}
+
+function buildDependency(
+  value: Value,
+  name: string,
 ): Dependency[] {
-  const dependencies = Object.entries(values)
-    .map(
-      ([key, value]): Dependency | null => {
-        switch (value.tag) {
-          case "object": {
-            const name = dependencyName(typePrefix, key);
-            return ({ tag: "object", name, value: value.value });
-          }
-          case "array": {
-            const name = dependencyName(typePrefix, key);
-            return ({ tag: "array", name, value: value.value });
-          }
-          case "string":
-          case "int":
-          case "bool":
-            return null;
-          default:
-            assertUnreachable(value);
-        }
-      },
-    )
-    .filter((v) => v !== null);
-  const childDependencies = dependencies.flatMap((v) =>
-    calculateDependencies(v.value, v.name)
-  );
-  return [...childDependencies, ...dependencies];
+  switch (value.tag) {
+    case "string":
+    case "int":
+    case "size_t":
+    case "bool":
+      return [];
+    case "struct": {
+      const childDependencies = structValueDependency(
+        name,
+        value.value,
+      );
+
+      return [...childDependencies, {
+        tag: "struct",
+        name: name,
+        value: value,
+      }];
+    }
+    case "array": {
+      const childDependencies = buildDependency(
+        value.value,
+        dependencyName(name, "data"),
+      );
+      return [...childDependencies, { tag: "array", name, value: value }];
+    }
+    default:
+      assertUnreachable(value);
+  }
 }
 
 function genStructData(
-  values: def.StructValues,
+  values: StructValues,
   typePrefix: string,
 ): string {
   let result = "";
@@ -85,10 +94,13 @@ function genStructData(
       case "int":
         result += "int64_t";
         break;
+      case "size_t":
+        result += "size_t";
+        break;
       case "bool":
         result += "bool";
         break;
-      case "object": {
+      case "struct": {
         const name = dependencyName(typePrefix, key);
         result += `const *${name}`;
         break;
@@ -106,25 +118,23 @@ function genStructData(
   return result;
 }
 
-function genDependency(dep: Dependency): string {
-  let result = "";
+function generateDependency(dep: Dependency): string {
   switch (dep.tag) {
-    case "object":
-      genStructLike();
-      let myDef = "";
-      myDef += "typedef struct {\n";
-      myDef += genStructData(struct.values, struct.name);
-      myDef += `} ${struct.name};`;
-      break;
-    case "array":
-      break;
+    case "struct": {
+      return genStructLike(dep.name, dep.value.value);
+    }
+    case "array": {
+      return genStructLike(dep.name, {
+        data: dep.value,
+        length: { tag: "size_t" },
+      });
+    }
     default:
       assertUnreachable(dep);
   }
-  return result;
 }
 
-function genStructLike(name: string, values: def.StructValues): string {
+function genStructLike(name: string, values: StructValues): string {
   let myDef = "";
   myDef += "typedef struct {\n";
   myDef += genStructData(values, name);
@@ -132,10 +142,10 @@ function genStructLike(name: string, values: def.StructValues): string {
   return myDef;
 }
 
-function genStruct(struct: def.Struct): string {
+function genStruct(struct: Struct): string {
   struct.name = pascalCase(struct.name);
-  const out = calculateDependencies(struct.values, struct.name)
-    .map(genDependency);
+  const out = structValueDependency(struct.name, struct.values)
+    .map(generateDependency);
   out.push(genStructLike(struct.name, struct.values));
   return out.join("\n");
 }
