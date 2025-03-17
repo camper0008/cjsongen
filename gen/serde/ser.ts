@@ -86,7 +86,7 @@ function primitiveFnImplementation(
       res +=
         '  size_t size = snprintf(NULL, 0, "%s", value ? "true" : "false");\n';
       res += "  char* buffer = malloc(size + 1);\n";
-      res += '  sprintf(buffer, "%ld", value, value ? "true" : "false");\n';
+      res += '  sprintf(buffer, "%s", value, value ? "true" : "false");\n';
       res += "  return buffer;\n";
   }
   res += "}";
