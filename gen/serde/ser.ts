@@ -68,7 +68,7 @@ function primitiveFnDefinition(
 function primitiveFnImplementation(
   node: FnNameNode & { tag: node.PrimitiveNode["tag"] },
 ): string {
-  let res = `char* ${fnName(node)}(${node.type} value) {`;
+  let res = `char* ${fnName(node)}(${node.type} value) {\n`;
   switch (node.type) {
     case "char*":
       res += '  size_t size = snprintf(NULL, 0, "\\"%s\\"", value);\n';
@@ -196,6 +196,7 @@ function defs(nodes: node.Node[]): string {
     .map((node) =>
       node.tag === "struct" ? structFnDefinition(node) : arrayFnDefinition(node)
     )
+    .map((v) => `${v};`)
     .join("\n");
 }
 

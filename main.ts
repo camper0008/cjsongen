@@ -22,6 +22,7 @@ if (import.meta.main) {
           name: str,
           price_dkk_cent: int,
           amount: int,
+          twue: "bool",
         }],
       },
     },
