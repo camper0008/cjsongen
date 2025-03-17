@@ -1,10 +1,12 @@
-import { generateStructs } from "./gen.ts";
+import { Struct } from "./repr/def.ts";
+import { generateStructs } from "./gen/typedef.ts";
+import { generateSerde } from "./gen/serde.ts";
 
 if (import.meta.main) {
   const int = "int64_t";
   const str = "char*";
 
-  const res = generateStructs([
+  const tree: Struct[] = [
     {
       name: "receipts_one_res",
       values: {
@@ -21,6 +23,8 @@ if (import.meta.main) {
         }],
       },
     },
-  ]);
-  console.log(res);
+  ];
+
+  console.log(generateSerde(tree));
+  console.log(generateStructs(tree));
 }

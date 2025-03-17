@@ -1,11 +1,13 @@
+import { RawType, supportedRawTypes } from "./supported_types.ts";
 import * as def from "./def.ts";
+import { assertUnreachable } from "../assert.ts";
 
 export type StructFields = {
   [key: string]: Value;
 };
 
 export type Value =
-  | { tag: "raw"; value: string }
+  | { tag: "raw"; value: RawType }
   | { tag: "struct"; value: StructFields }
   | { tag: "array"; value: Value };
 
@@ -24,15 +26,14 @@ function mapDefStruct(
 }
 
 function fromDefValue(def: def.Value): Value {
-  if (typeof def === "string") {
-    return { tag: "raw", value: def };
-  } else if (Array.isArray(def)) {
+  if (Array.isArray(def)) {
     const value = fromDefValue(def[0]);
     return { tag: "array", value };
-  } else {
+  } else if (typeof def === "object") {
     const value = mapDefStruct(def);
     return { tag: "struct", value };
   }
+  return { tag: "raw", value: def };
 }
 
 export function fromDef(def: def.Struct): Struct {
