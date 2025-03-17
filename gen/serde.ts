@@ -2,10 +2,10 @@ import { fatal } from "../assert.ts";
 import * as def from "../repr/def.ts";
 import * as imm from "../repr/immediate.ts";
 import * as node from "../repr/node.ts";
-import { NodeMap, nodeMap, toTypeName } from "./common.ts";
+import { NodeMap, nodeMap, stripComments, toTypeName } from "./common.ts";
 
 function toFunctionName(name: string): string {
-  const chars = name.split("").toReversed();
+  const chars = stripComments(name).split("").toReversed();
   let res = "";
   while (true) {
     const char = chars.pop();
@@ -37,7 +37,7 @@ function functionDefinition(name: string): string {
 }
 
 function genSerDef(
-  node: node.ArrayNode | node.StructNode,
+  node: node.StructNode,
 ): string {
   return `${functionDefinition(node.name)};`;
 }
@@ -55,16 +55,9 @@ function genSerImpl(
 }
 
 function genSer(nodes: node.Node[]): string {
-  const map = nodeMap(nodes);
-  const root = nodes.findLast((v) => v.tag === "struct");
-  if (!root) {
-    fatal("could not find root node");
-  }
-  console.log(genSerDef(root));
-  return "";
   return nodes
-    .filter((node) => node.tag === "struct" || node.tag === "array")
-    .map((node) => genSerImpl(node, map))
+    .filter((node) => node.tag === "struct")
+    .map((node) => genSerDef(node))
     .join("\n");
 }
 
@@ -72,7 +65,6 @@ export function generateSerde(structs: def.Struct[]): string {
   const nodes = structs
     .map(imm.fromDef)
     .map(node.fromRepr);
-
   const ser = nodes.map(genSer);
 
   return ser.join("\n");

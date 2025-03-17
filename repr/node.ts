@@ -2,7 +2,7 @@ import { RawType } from "./supported_types.ts";
 import * as imm from "./immediate.ts";
 
 export type StructNode = { tag: "struct"; name: string; fields: Node[] };
-export type ArrayNode = { tag: "array"; name: string };
+export type ArrayNode = { tag: "array"; name: string; data: string };
 export type RawNode = { tag: "raw"; name: string; type: RawType };
 
 export type Node =
@@ -44,9 +44,10 @@ function nodeFromField(
       return nodeFromStruct(me, field.value);
     }
     case "array": {
-      const child = nodeFromField(me, ["#array", field.value]);
-      return [...child, {
+      const children = nodeFromField(me, ["#array_data#", field.value]);
+      return [...children, {
         tag: "array",
+        data: "#array_data#",
         name: me,
       }];
     }

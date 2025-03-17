@@ -15,7 +15,7 @@ export function nodeMap(nodes: Node[]): NodeMap {
 }
 
 export function key(name: string): string {
-  const last = name.split(".").pop();
+  const last = stripComments(name).split(".").pop();
   if (!last) {
     fatal(`encountered invalid field name '${last}'`);
   }
@@ -23,7 +23,7 @@ export function key(name: string): string {
 }
 
 export function toTypeName(name: string) {
-  const chars = name.split("").toReversed();
+  const chars = stripComments(name).split("").toReversed();
   let result = "";
   let toUpper = true;
   while (true) {
@@ -59,15 +59,6 @@ export function getType(name: string, map: NodeMap) {
   }
 }
 
-export function stripComments(nodes: Node[]): Node[] {
-  return nodes.map((node) => {
-    const name = node.name.replaceAll("#array", "");
-    switch (node.tag) {
-      case "struct":
-        return { tag: node.tag, name, fields: stripComments(node.fields) };
-      case "array":
-      case "raw":
-        return { ...node, name };
-    }
-  });
+export function stripComments(name: string): string {
+  return name.replaceAll(".#array_data#", "");
 }

@@ -1,7 +1,7 @@
 import * as def from "../repr/def.ts";
 import * as imm from "../repr/immediate.ts";
 import * as node from "../repr/node.ts";
-import { getType, key, nodeMap, stripComments, toTypeName } from "./common.ts";
+import { getType, key, nodeMap, toTypeName } from "./common.ts";
 
 function nodeField(node: node.Node, map: Map<string, node.Node>): string {
   switch (node.tag) {
@@ -42,7 +42,6 @@ export function generateStructs(structs: def.Struct[]): string {
   return structs
     .map(imm.fromDef)
     .map(node.fromRepr)
-    .map(stripComments)
     .map(structsFromNodes)
     .join("\n");
 }
