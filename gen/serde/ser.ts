@@ -65,6 +65,35 @@ function primitiveFnDefinition(
   return `char* ${fnName(node)}(${node.type} value)`;
 }
 
+function primitiveFnImplementation(
+  node: FnNameNode & { tag: node.PrimitiveNode["tag"] },
+): string {
+  let res = `char* ${fnName(node)}(${node.type} value) {`;
+  switch (node.type) {
+    case "char*":
+      res += '  size_t size = snprintf(NULL, 0, "\\"%s\\"", value);\n';
+      res += "  char* buffer = malloc(size + 1);\n";
+      res += '  sprintf(buffer, ""%s"", ptr);\n';
+      res += "  return buffer;\n";
+      break;
+    case "int64_t":
+      res += '  size_t size = snprintf(NULL, 0, "%ld", value);\n';
+      res += "  char* buffer = malloc(size + 1);\n";
+      res += '  sprintf(buffer, "%ld", value);\n';
+      res += "  return buffer;\n";
+      break;
+    case "bool":
+      res +=
+        '  size_t size = snprintf(NULL, 0, "%s", value ? "true" : "false");\n';
+      res += "  char* buffer = malloc(size + 1);\n";
+      res += '  sprintf(buffer, "%ld", value, value ? "true" : "false");\n';
+      res += "  return buffer;\n";
+  }
+  res += "}";
+
+  return res;
+}
+
 function arrayFnDefinition(node: node.ArrayNode): string {
   return `char* ${fnName(node)}(const ${
     toTypeName(node.key)
@@ -179,7 +208,7 @@ function impls(nodes: node.Node[]): string {
     .join("\n\n");
 }
 
-export function serializerPrelude(): string {
+export function serializerPreludeDefinitions(): string {
   const primitives = prims.primitives
     .map((type) => ({ tag: "primitive", type } as const))
     .map(primitiveFnDefinition)
@@ -196,6 +225,15 @@ export function serializerDefinitions(structs: def.Struct[]): string {
   const ser = nodes.map(defs);
 
   return ser.join("\n");
+}
+
+export function serializerPreludeImplementations(): string {
+  const primitives = prims.primitives
+    .map((type) => ({ tag: "primitive", type } as const))
+    .map(primitiveFnImplementation)
+    .join("\n\n");
+
+  return primitives;
 }
 
 export function serializerImplementations(structs: def.Struct[]): string {

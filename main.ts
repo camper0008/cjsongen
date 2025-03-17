@@ -3,7 +3,8 @@ import { generateStructs } from "./gen/typedef.ts";
 import {
   serializerDefinitions,
   serializerImplementations,
-  serializerPrelude,
+  serializerPreludeDefinitions,
+  serializerPreludeImplementations,
 } from "./gen/serde/ser.ts";
 
 if (import.meta.main) {
@@ -26,10 +27,12 @@ if (import.meta.main) {
     },
   ];
 
-  console.log(serializerPrelude());
+  console.log(generateStructs(tree));
+  console.log();
+  console.log(serializerPreludeDefinitions());
   console.log(serializerDefinitions(tree));
   console.log();
-  console.log(serializerImplementations(tree));
+  console.log(serializerPreludeImplementations());
   console.log();
-  console.log(generateStructs(tree));
+  console.log(serializerImplementations(tree));
 }
