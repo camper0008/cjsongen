@@ -15,8 +15,8 @@ typedef struct {
     size_t products_size;
 } ReceiptsOneRes;
 
-char* serialize_str(char* ptr);
-char* serialize_int(int64_t value);
+char* str_to_json_primitive(char* ptr);
+char* int64_to_json_primitive(int64_t value);
 char* receipts_one_res_products_to_json_array(
     const ReceiptsOneResProducts* model, size_t size);
 char* receipts_one_res_products_to_json(const ReceiptsOneResProducts* model);

@@ -6,15 +6,15 @@ export type NodeMap = Map<string, Node>;
 export function nodeMap(nodes: Node[]): NodeMap {
   const map = new Map();
   for (const node of nodes) {
-    if (map.has(node.name)) {
-      throw new Error(`fatal: encountered duplicate name '${node.name}'`);
+    if (map.has(node.key)) {
+      throw new Error(`fatal: encountered duplicate name '${node.key}'`);
     }
-    map.set(node.name, node);
+    map.set(node.key, node);
   }
   return map;
 }
 
-export function key(name: string): string {
+export function fieldName(name: string): string {
   const last = stripComments(name).split(".").pop();
   if (!last) {
     fatal(`encountered invalid field name '${last}'`);
@@ -51,7 +51,7 @@ export function getType(name: string, map: NodeMap) {
   switch (node.tag) {
     case "array":
     case "struct":
-      return toTypeName(node.name);
+      return toTypeName(node.key);
     case "raw":
       return node.type;
     default:

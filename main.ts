@@ -1,6 +1,6 @@
 import { Struct } from "./repr/def.ts";
 import { generateStructs } from "./gen/typedef.ts";
-import { generateSerde } from "./gen/serde.ts";
+import { generateSer } from "./gen/serde/ser.ts";
 
 if (import.meta.main) {
   const int = "int64_t";
@@ -16,15 +16,12 @@ if (import.meta.main) {
           product_id: int,
           name: str,
           price_dkk_cent: int,
-          nested: {
-            value: str,
-          },
           amount: int,
         }],
       },
     },
   ];
 
-  console.log(generateSerde(tree));
+  console.log(generateSer(tree));
   console.log(generateStructs(tree));
 }
