@@ -1,8 +1,7 @@
-import { fatal } from "../assert.ts";
 import * as def from "../repr/def.ts";
 import * as imm from "../repr/immediate.ts";
 import * as node from "../repr/node.ts";
-import { NodeMap, nodeMap, stripComments, toTypeName } from "./common.ts";
+import { NodeMap, stripComments, toTypeName } from "./common.ts";
 
 function toFunctionName(name: string): string {
   const chars = stripComments(name).split("").toReversed();
@@ -33,7 +32,7 @@ function toFunctionName(name: string): string {
 function functionDefinition(name: string): string {
   return `char* ${toFunctionName(name)}_to_json_string(const ${
     toTypeName(name)
-  }* model)`;
+  }* model${name.endsWith(".#array_data#") ? ", size_t size" : ""})`;
 }
 
 function genSerDef(
