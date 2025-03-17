@@ -1,14 +1,18 @@
-import { RawType } from "./supported_types.ts";
+import { Primitive } from "./primitives.ts";
 import * as imm from "./immediate.ts";
 
 export type StructNode = { tag: "struct"; key: string; fields: Node[] };
 export type ArrayNode = { tag: "array"; key: string; data: string };
-export type RawNode = { tag: "raw"; key: string; type: RawType };
+export type PrimitiveNode = {
+  tag: "primitive";
+  key: string;
+  type: Primitive;
+};
 
 export type Node =
   | StructNode
   | ArrayNode
-  | RawNode;
+  | PrimitiveNode;
 
 function fieldNodes(
   parent: string,
@@ -51,9 +55,9 @@ function nodeFromField(
         key: me,
       }];
     }
-    case "raw":
+    case "primitive":
       return [{
-        tag: "raw",
+        tag: "primitive",
         key: me,
         type: field.value,
       }];

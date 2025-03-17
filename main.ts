@@ -1,6 +1,10 @@
 import { Struct } from "./repr/def.ts";
 import { generateStructs } from "./gen/typedef.ts";
-import { generateSer } from "./gen/serde/ser.ts";
+import {
+  serializerDefinitions,
+  serializerImplementations,
+  serializerPrelude,
+} from "./gen/serde/ser.ts";
 
 if (import.meta.main) {
   const int = "int64_t";
@@ -22,6 +26,10 @@ if (import.meta.main) {
     },
   ];
 
-  console.log(generateSer(tree));
+  console.log(serializerPrelude());
+  console.log(serializerDefinitions(tree));
+  console.log();
+  console.log(serializerImplementations(tree));
+  console.log();
   console.log(generateStructs(tree));
 }

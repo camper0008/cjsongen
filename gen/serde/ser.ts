@@ -2,6 +2,7 @@ import { assertUnreachable } from "../../assert.ts";
 import * as def from "../../repr/def.ts";
 import * as imm from "../../repr/immediate.ts";
 import * as node from "../../repr/node.ts";
+import * as prims from "../../repr/primitives.ts";
 import { fieldName, stripComments, toTypeName } from "../common.ts";
 
 function toFnName(name: string): string {
@@ -35,11 +36,11 @@ type FnNameNode =
     tag: node.StructNode["tag"] | node.ArrayNode["tag"];
     key: node.Node["key"];
   }
-  | { tag: node.RawNode["tag"]; type: node.RawNode["type"] };
+  | { tag: node.PrimitiveNode["tag"]; type: node.PrimitiveNode["type"] };
 
 function fnName(node: FnNameNode): string {
   switch (node.tag) {
-    case "raw": {
+    case "primitive": {
       const primitiveNames = {
         "char*": "str",
         "int64_t": "int64",
@@ -58,6 +59,12 @@ function fnName(node: FnNameNode): string {
   }
 }
 
+function primitiveFnDefinition(
+  node: FnNameNode & { tag: node.PrimitiveNode["tag"] },
+): string {
+  return `char* ${fnName(node)}(${node.type} value)`;
+}
+
 function arrayFnDefinition(node: node.ArrayNode): string {
   return `char* ${fnName(node)}(const ${
     toTypeName(node.key)
@@ -68,12 +75,12 @@ function structFnDefinition(node: node.StructNode): string {
   return `char* ${fnName(node)}(const ${toTypeName(node.key)}* model)`;
 }
 
-function fieldStatement(field: node.Node): string {
+function defineFieldStatement(field: node.Node): string {
   const name = fieldName(field.key);
   const fn = fnName(field);
   switch (field.tag) {
     case "struct":
-    case "raw": {
+    case "primitive": {
       return `  char* ${name} = ${fn}(model->${name});\n`;
     }
     case "array": {
@@ -92,13 +99,13 @@ function fieldSpread(fields: node.Node[]): string {
 }
 
 function formatVariableStatement(node: node.StructNode): string {
-  let res = "  ";
+  let res = "";
   res += `const char* _format = "{`;
   const fields = node.fields
     .map((field) => `\\"${fieldName(field.key)}\\":%s`)
     .join(",");
   res += fields;
-  res += '}";\n';
+  res += '}"';
   return res;
 }
 
@@ -107,7 +114,7 @@ function arrayItemToJsonStatement(node: node.ArrayNode, i: string) {
   return `char* value = ${toJson}(&model[${i}])`;
 }
 
-function genImplArray(
+function arraySerializer(
   node: node.ArrayNode,
 ): string {
   let res = "";
@@ -136,13 +143,13 @@ function genImplArray(
   return res;
 }
 
-function genImplStruct(
+function structSerializer(
   node: node.StructNode,
 ): string {
   let res = "";
   res += `${structFnDefinition(node)} {\n`;
-  res += formatVariableStatement(node);
-  res += node.fields.map(fieldStatement).join("");
+  res += `  ${formatVariableStatement(node)};\n`;
+  res += node.fields.map(defineFieldStatement).join("");
   res += `  size_t _size = snprintf(NULL, 0, _format, ${
     fieldSpread(node.fields)
   });\n`;
@@ -154,20 +161,48 @@ function genImplStruct(
   return res;
 }
 
-function gen(nodes: node.Node[]): string {
+function defs(nodes: node.Node[]): string {
   return nodes
     .filter((node) => node.tag === "struct" || node.tag === "array")
     .map((node) =>
-      node.tag === "struct" ? genImplStruct(node) : genImplArray(node)
+      node.tag === "struct" ? structFnDefinition(node) : arrayFnDefinition(node)
+    )
+    .join("\n");
+}
+
+function impls(nodes: node.Node[]): string {
+  return nodes
+    .filter((node) => node.tag === "struct" || node.tag === "array")
+    .map((node) =>
+      node.tag === "struct" ? structSerializer(node) : arraySerializer(node)
     )
     .join("\n\n");
 }
 
-export function generateSer(structs: def.Struct[]): string {
+export function serializerPrelude(): string {
+  const primitives = prims.primitives
+    .map((type) => ({ tag: "primitive", type } as const))
+    .map(primitiveFnDefinition)
+    .map((v) => `${v};`)
+    .join("\n");
+
+  return primitives;
+}
+
+export function serializerDefinitions(structs: def.Struct[]): string {
   const nodes = structs
     .map(imm.fromDef)
     .map(node.fromRepr);
-  const ser = nodes.map(gen);
+  const ser = nodes.map(defs);
+
+  return ser.join("\n");
+}
+
+export function serializerImplementations(structs: def.Struct[]): string {
+  const nodes = structs
+    .map(imm.fromDef)
+    .map(node.fromRepr);
+  const ser = nodes.map(impls);
 
   return ser.join("\n\n");
 }

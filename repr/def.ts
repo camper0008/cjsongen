@@ -1,4 +1,4 @@
-import { RawType } from "./supported_types.ts";
+import { Primitive } from "./primitives.ts";
 
 export type Struct = {
   name: string;
@@ -6,6 +6,6 @@ export type Struct = {
 };
 
 export type Value =
-  | RawType
+  | Primitive
   | { [key: string]: Value }
   | [Value];

@@ -14,7 +14,7 @@ function nodeField(node: node.Node, map: Map<string, node.Node>): string {
       res += `  size_t ${fieldName(node.key)}_size;`;
       return res;
     }
-    case "raw":
+    case "primitive":
       return `  ${node.type} ${fieldName(node.key)};`;
   }
 }

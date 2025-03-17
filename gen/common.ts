@@ -52,7 +52,7 @@ export function getType(name: string, map: NodeMap) {
     case "array":
     case "struct":
       return toTypeName(node.key);
-    case "raw":
+    case "primitive":
       return node.type;
     default:
       assertUnreachable(node);

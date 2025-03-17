@@ -1,13 +1,12 @@
-import { RawType, supportedRawTypes } from "./supported_types.ts";
+import { Primitive } from "./primitives.ts";
 import * as def from "./def.ts";
-import { assertUnreachable } from "../assert.ts";
 
 export type StructFields = {
   [key: string]: Value;
 };
 
 export type Value =
-  | { tag: "raw"; value: RawType }
+  | { tag: "primitive"; value: Primitive }
   | { tag: "struct"; value: StructFields }
   | { tag: "array"; value: Value };
 
@@ -33,7 +32,7 @@ function fromDefValue(def: def.Value): Value {
     const value = mapDefStruct(def);
     return { tag: "struct", value };
   }
-  return { tag: "raw", value: def };
+  return { tag: "primitive", value: def };
 }
 
 export function fromDef(def: def.Struct): Struct {
