@@ -5,12 +5,11 @@ if (import.meta.main) {
     {
       name: "hello",
       values: {
-        whats: "string",
-        done: "bool",
-        yarr: [{
-          yep: "int",
+        a: [{
+          b: "int",
+          c: ["bool"],
         }],
-        yarray: ["int"],
+        d: ["int"],
       },
     },
   ]);
