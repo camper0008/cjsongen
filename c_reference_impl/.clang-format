@@ -1,4 +1,14 @@
----
-BasedOnStyle: LLVM
+# .clang-format
+Language: Cpp
+BasedOnStyle: WebKit
 IndentWidth: 4
----
+ColumnLimit: 80
+IndentCaseLabels: true
+InsertNewlineAtEOF: true
+AllowShortFunctionsOnASingleLine: None
+
+BinPackArguments: false
+AllowAllArgumentsOnNextLine: true
+
+BinPackParameters: false
+AllowAllParametersOfDeclarationOnNextLine: true
