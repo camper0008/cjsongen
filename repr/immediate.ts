@@ -1,31 +1,21 @@
-export type Value =
-  | { tag: "raw"; value: string }
-  | { tag: "struct"; value: StructFields }
-  | { tag: "array"; value: Value };
+import * as def from "./def.ts";
 
 export type StructFields = {
   [key: string]: Value;
 };
+
+export type Value =
+  | { tag: "raw"; value: string }
+  | { tag: "struct"; value: StructFields }
+  | { tag: "array"; value: Value };
 
 export type Struct = {
   name: string;
   values: StructFields;
 };
 
-export type StructDef = {
-  name: string;
-  values: { [key: string]: DefValue };
-};
-
-export type DefValue =
-  | string
-  | { [key: string]: DefValue }
-  | [
-    DefValue,
-  ];
-
 function mapDefStruct(
-  def: { [key: string]: DefValue },
+  def: { [key: string]: def.Value },
 ): { [key: string]: Value } {
   const entries = Object.entries(def)
     .map(([key, value]) => [key, fromDefValue(value)]);
@@ -33,7 +23,7 @@ function mapDefStruct(
   return Object.fromEntries(entries);
 }
 
-function fromDefValue(def: DefValue): Value {
+function fromDefValue(def: def.Value): Value {
   if (typeof def === "string") {
     return { tag: "raw", value: def };
   } else if (Array.isArray(def)) {
@@ -45,7 +35,7 @@ function fromDefValue(def: DefValue): Value {
   }
 }
 
-export function fromDef(def: StructDef): Struct {
+export function fromDef(def: def.Struct): Struct {
   const value = mapDefStruct(def.values);
   const struct = {
     name: def.name,

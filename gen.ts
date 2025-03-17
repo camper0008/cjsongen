@@ -1,15 +1,17 @@
-import { assertUnreachable } from "./assert.ts";
-import { fromDef, Struct, StructDef, StructFields, Value } from "./def.ts";
+import { assertUnreachable, fatal } from "./assert.ts";
+import * as def from "./repr/def.ts";
+import * as imm from "./repr/immediate.ts";
+import * as node from "./repr/node.ts";
 
-export function structs(structs: StructDef[]): string {
-  return structs.map(fromDef).map(genStruct).join("\n");
+function key(name: string): string {
+  const last = name.split(".").pop();
+  if (!last) {
+    fatal(`encountered invalid field name '${last}'`);
+  }
+  return last;
 }
 
-type Dependency =
-  | { tag: "struct"; name: string; value: Value & { tag: "struct" } }
-  | { tag: "array"; name: string; value: Value };
-
-function pascalCase(name: string): string {
+function toTypeName(name: string) {
   const chars = name.split("").toReversed();
   let result = "";
   let toUpper = true;
@@ -18,154 +20,84 @@ function pascalCase(name: string): string {
     if (!char) {
       break;
     }
+    if (char === "_" || char === ".") {
+      toUpper = true;
+      continue;
+    }
     if (toUpper) {
       result += char.toUpperCase();
-      toUpper = false;
-    } else if (char === "_") {
-      toUpper = true;
     } else {
       result += char;
     }
+    toUpper = false;
   }
   return result;
 }
 
-function dependencyName(typePrefix: string, key: string): string {
-  return `${typePrefix}${pascalCase(key)}`;
-}
-
-function dependencyFromStructValues(
-  prefix: string,
-  value: StructFields,
-) {
-  return Object.entries(value)
-    .flatMap(([key, value]) =>
-      buildDependency(value, dependencyName(prefix, key))
-    );
-}
-
-function buildDependency(
-  value: Value,
-  name: string,
-): Dependency[] {
-  switch (value.tag) {
-    case "raw":
-      return [];
-    case "struct": {
-      const childDependencies = dependencyFromStructValues(
-        name,
-        value.value,
-      );
-
-      return [...childDependencies, {
-        tag: "struct",
-        name: name,
-        value: value,
-      }];
-    }
-    case "array": {
-      if (value.value.tag !== "raw") {
-        const childDependencies = buildDependency(
-          value.value,
-          dependencyName(name, "data"),
-        );
-        return [...childDependencies, { tag: "array", name, value: value }];
-      }
-      return [{ tag: "array", name, value: value }];
-    }
-    default:
-      assertUnreachable(value);
-  }
-}
-
-function genStructField(
-  typePrefix: string,
-  name: string,
-  field: Value,
-): string {
-  console.log(name, field);
-  let result = "  ";
-  result += name;
-  result += ": ";
-  switch (field.tag) {
-    case "raw":
-      result += field.value;
-      break;
-    case "struct": {
-      result += `*${dependencyName(typePrefix, name)}`;
-      break;
-    }
-    case "array": {
-      result += `*${dependencyName(typePrefix, name)}`;
-      break;
-    }
-    default:
-      assertUnreachable(field);
-  }
-  result += ";\n";
-  return result;
-}
-
-function fieldType(
-  typePrefix: string,
-  name: string,
-  field: Value,
-): string {
-  switch (field.tag) {
-    case "raw":
-      return field.value;
+function getType(name: string, map: Map<string, node.Node>) {
+  const node = map.get(name);
+  if (!node) fatal(`attempted to access invalid field '${name}'`);
+  switch (node.tag) {
     case "array":
-    case "struct": {
-      return `*${dependencyName(typePrefix, name)}`;
-    }
+    case "struct":
+      return toTypeName(node.name);
+    case "raw":
+      return node.type;
     default:
-      assertUnreachable(field);
+      assertUnreachable(node);
   }
 }
 
-function genStructFields(
-  values: StructFields,
-  typePrefix: string,
-): string {
-  let result = "";
-  for (const [key, field] of Object.entries(values)) {
-    result += genStructField(typePrefix, key, field);
-  }
-  return result;
-}
-
-function genDependency(dep: Dependency): string {
-  switch (dep.tag) {
-    case "struct": {
-      return genStructLike(dep.name, dep.value.value);
-    }
+function nodeField(node: node.Node, map: Map<string, node.Node>): string {
+  switch (node.tag) {
+    case "struct":
+      return `  ${toTypeName(node.name)} ${key(node.name)}`;
     case "array": {
-      console.log(dep.value);
-      return genStructLike(dep.name, {
-        data: {
-          tag: "raw",
-          value: `*${fieldType(dep.name, "data", dep.value)}`,
-        },
-        length: { tag: "raw", value: "size_t" },
-      });
+      const dataType = getType(node.data, map);
+      let res = "";
+      res += `  ${dataType} *${key(node.name)};\n`;
+      res += `  size_t ${key(node.name)}_size;`;
+      return res;
     }
-    default:
-      assertUnreachable(dep);
+    case "raw":
+      return `  ${node.type} ${key(node.name)};`;
   }
 }
 
-function genStructLike(name: string, values: StructFields): string {
-  let myDef = "";
-  myDef += "typedef struct {\n";
-  myDef += genStructFields(values, name);
-  myDef += `} ${name};`;
-  return myDef;
+function genNodeStruct(
+  node: node.StructNode,
+  map: Map<string, node.Node>,
+): string {
+  let res = "";
+  res += "typedef struct {\n";
+  res += node.fields.map((node) => nodeField(node, map)).join("\n");
+  res += `\n} ${toTypeName(node.name)}`;
+  return res;
 }
 
-function genStruct(struct: Struct): string {
-  struct.name = pascalCase(struct.name);
-  const out = dependencyFromStructValues(struct.name, struct.values)
-    .map(genDependency);
-  out.push(genStructLike(struct.name, struct.values));
-  return out.join("\n");
+function nodeMap(nodes: node.Node[]): Map<string, node.Node> {
+  const map = new Map();
+  for (const node of nodes) {
+    if (map.has(node.name)) {
+      throw new Error(`fatal: encountered duplicate  name '${node.name}'`);
+    }
+    map.set(node.name, node);
+  }
+  return map;
+}
+
+function fromNodes(nodes: node.Node[]): string {
+  console.log(nodes);
+  const map = nodeMap(nodes);
+  return nodes
+    .filter((v) => v.tag === "struct")
+    .map((n) => genNodeStruct(n, map))
+    .join("\n\n");
+}
+
+export function generateStructs(structs: def.Struct[]): string {
+  return structs
+    .map(imm.fromDef)
+    .map(node.fromRepr)
+    .map(fromNodes).join("\n");
 }
