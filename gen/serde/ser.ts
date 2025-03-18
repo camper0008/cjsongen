@@ -159,8 +159,11 @@ function arraySerializer(
   res += `    ${arrayItemToJsonStatement(node, "i")};\n`;
   res += '    buffer_size = snprintf(NULL, 0, "%s,%s", buffer, value);\n';
   res += "    buffer = realloc(buffer, buffer_size + 1);\n";
-  res += '    sprintf(buffer, "%s,%s", buffer, value);\n';
+  res += "    temp = malloc(buffer_size + 1);\n";
+  res += "    memcpy(temp, buffer, buffer_size + 1);\n";
+  res += '    sprintf(buffer, "%s,%s", temp, value);\n';
   res += "    free(value);\n";
+  res += "    free(temp);\n";
   res += "  }\n";
 
   res += '  buffer_size = snprintf(NULL, 0, "%s]", buffer);\n';
