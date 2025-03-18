@@ -1,5 +1,5 @@
 import { Primitive } from "./primitives.ts";
-import * as def from "./def.ts";
+import * as hir from "./hir.ts";
 
 export type StructFields = {
   [key: string]: Value;
@@ -15,28 +15,28 @@ export type Struct = {
   values: StructFields;
 };
 
-function mapDefStruct(
-  def: { [key: string]: def.Value },
+function mapHirStruct(
+  def: { [key: string]: hir.Value },
 ): { [key: string]: Value } {
   const entries = Object.entries(def)
-    .map(([key, value]) => [key, fromDefValue(value)]);
+    .map(([key, value]) => [key, fromHirValue(value)]);
 
   return Object.fromEntries(entries);
 }
 
-function fromDefValue(def: def.Value): Value {
+function fromHirValue(def: hir.Value): Value {
   if (Array.isArray(def)) {
-    const value = fromDefValue(def[0]);
+    const value = fromHirValue(def[0]);
     return { tag: "array", value };
   } else if (typeof def === "object") {
-    const value = mapDefStruct(def);
+    const value = mapHirStruct(def);
     return { tag: "struct", value };
   }
   return { tag: "primitive", value: def };
 }
 
-export function fromDef(def: def.Struct): Struct {
-  const value = mapDefStruct(def.values);
+export function fromHir(def: hir.Struct): Struct {
+  const value = mapHirStruct(def.values);
   const struct = {
     name: def.name,
     values: value,

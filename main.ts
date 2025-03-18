@@ -1,39 +1,29 @@
-import { Struct } from "./repr/def.ts";
-import { generateStructs } from "./gen/typedef.ts";
-import {
-  serializerDefinitions,
-  serializerImplementations,
-  serializerPreludeDefinitions,
-  serializerPreludeImplementations,
-} from "./gen/serde/ser.ts";
+import * as gen from "./gen/mod.ts";
+import * as repr from "./repr/mod.ts";
 
 if (import.meta.main) {
-  const int = "int64_t";
-  const str = "char*";
-
-  const tree: Struct[] = [
+  const def: repr.hir.Struct[] = [
     {
       name: "receipts_one_res",
       values: {
-        receipt_id: int,
-        timestamp: str,
+        receipt_id: "int",
+        timestamp: "str",
         products: [{
-          product_id: int,
-          name: str,
-          price_dkk_cent: int,
-          amount: int,
+          product_id: "int",
+          name: "str",
+          price_dkk_cent: "int",
+          amount: "int",
           twue: "bool",
         }],
       },
     },
-  ];
+  ] as const;
 
-  console.log(generateStructs(tree));
-  console.log();
-  console.log(serializerPreludeDefinitions());
-  console.log(serializerDefinitions(tree));
-  console.log();
-  console.log(serializerPreludeImplementations());
-  console.log();
-  console.log(serializerImplementations(tree));
+  const tree = def
+    .map(repr.mir.fromHir)
+    .map(repr.fromMir);
+
+  console.log(tree.map(gen.typedef.structDef).join("\n\n"));
+  console.log(tree.map(gen.json.serializerDef).join("\n\n"));
+  console.log(tree.map(gen.json.serializerImpl).join("\n\n"));
 }

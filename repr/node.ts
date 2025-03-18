@@ -1,8 +1,10 @@
 import { Primitive } from "./primitives.ts";
-import * as imm from "./immediate.ts";
+import * as mir from "./mir.ts";
 
-export type StructNode = { tag: "struct"; key: string; fields: Node[] };
-export type ArrayNode = { tag: "array"; key: string; data: string };
+export type Id = string;
+
+export type StructNode = { tag: "struct"; key: string; fields: Id[] };
+export type ArrayNode = { tag: "array"; key: string; data: Id };
 export type PrimitiveNode = {
   tag: "primitive";
   key: string;
@@ -16,54 +18,56 @@ export type Node =
 
 function fieldNodes(
   parent: string,
-  fields: imm.StructFields,
+  fields: mir.StructFields,
 ): Node[] {
   const list = Object.entries(fields);
   return list.flatMap((v) => nodeFromField(parent, v));
 }
 
-function immediateRelative(parent: string, child: string): boolean {
+function isChildOf(parent: string, child: string): boolean {
   const startsWith = child.startsWith(parent);
   const immediateRelative = child.lastIndexOf(".") === parent.length;
   return startsWith && immediateRelative;
 }
 
-function nodeFromStruct(parent: string, fields: imm.StructFields): Node[] {
+function nodeFromStruct(parent: string, fields: mir.StructFields): Node[] {
   const children = fieldNodes(parent, fields);
   const root: Node = {
     tag: "struct",
     key: parent,
-    fields: children.filter((child) => immediateRelative(parent, child.key)),
+    fields: children
+      .filter((child) => isChildOf(parent, child.key))
+      .map((child) => child.key),
   };
   return [...children, root];
 }
 
 function nodeFromField(
   parent: string,
-  [key, field]: [string, imm.Value],
+  [fieldName, fieldValue]: [string, mir.Value],
 ): Node[] {
-  const me = `${parent}.${key}`;
-  switch (field.tag) {
+  const key = `${parent}.${fieldName}`;
+  switch (fieldValue.tag) {
     case "struct": {
-      return nodeFromStruct(me, field.value);
+      return nodeFromStruct(key, fieldValue.value);
     }
     case "array": {
-      const children = nodeFromField(me, ["#array_data#", field.value]);
+      const children = nodeFromField(key, ["#array_data#", fieldValue.value]);
       return [...children, {
         tag: "array",
         data: "#array_data#",
-        key: me,
+        key: key,
       }];
     }
     case "primitive":
       return [{
         tag: "primitive",
-        key: me,
-        type: field.value,
+        key: key,
+        type: fieldValue.value,
       }];
   }
 }
 
-export function fromRepr(struct: imm.Struct): Node[] {
+export function fromMir(struct: mir.Struct): Node[] {
   return nodeFromStruct(struct.name, struct.values);
 }

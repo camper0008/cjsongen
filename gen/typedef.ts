@@ -1,9 +1,7 @@
-import * as def from "../repr/def.ts";
-import * as imm from "../repr/immediate.ts";
-import * as node from "../repr/node.ts";
-import { fieldName, getType, nodeMap, toTypeName } from "./common.ts";
+import { Node, StructNode } from "../repr/node.ts";
+import { fieldName, getType, NodeMap, toTypeName } from "./common.ts";
 
-function nodeField(node: node.Node, map: Map<string, node.Node>): string {
+function nodeField(node: Node, map: NodeMap): string {
   switch (node.tag) {
     case "struct":
       return `  ${toTypeName(node.key)} ${fieldName(node.key)};`;
@@ -20,28 +18,24 @@ function nodeField(node: node.Node, map: Map<string, node.Node>): string {
 }
 
 function genNodeStruct(
-  node: node.StructNode,
-  map: Map<string, node.Node>,
+  node: StructNode,
+  map: NodeMap,
 ): string {
   let res = "";
   res += "typedef struct {\n";
-  res += node.fields.map((node) => nodeField(node, map)).join("\n");
+  res += node.fields.map((node) => nodeField(map.get(node), map)).join("\n");
   res += `\n} ${toTypeName(node.key)};`;
   return res;
 }
 
-function structsFromNodes(nodes: node.Node[]): string {
-  const map = nodeMap(nodes);
+function structsFromNodes(nodes: Node[]): string {
+  const map = new NodeMap(nodes);
   return nodes
     .filter((v) => v.tag === "struct")
     .map((n) => genNodeStruct(n, map))
     .join("\n\n");
 }
 
-export function generateStructs(structs: def.Struct[]): string {
-  return structs
-    .map(imm.fromDef)
-    .map(node.fromRepr)
-    .map(structsFromNodes)
-    .join("\n");
+export function structDef(node: Node[]): string {
+  return structsFromNodes(node);
 }

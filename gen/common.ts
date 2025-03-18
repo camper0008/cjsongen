@@ -1,17 +1,46 @@
 import { assertUnreachable, fatal } from "../assert.ts";
 import { Node } from "../repr/node.ts";
 
-export type NodeMap = Map<string, Node>;
+export class NodeMap {
+  inner: Map<string, Node>;
 
-export function nodeMap(nodes: Node[]): NodeMap {
-  const map = new Map();
-  for (const node of nodes) {
-    if (map.has(node.key)) {
-      throw new Error(`fatal: encountered duplicate name '${node.key}'`);
+  constructor(nodes: Node[]) {
+    this.inner = new Map();
+    for (const node of nodes) {
+      if (this.inner.has(node.key)) {
+        fatal(`encountered duplicate name '${node.key}'`);
+      }
+      this.inner.set(node.key, node);
     }
-    map.set(node.key, node);
   }
-  return map;
+  get(key: string): Node {
+    const gotten = this.inner.get(key);
+    if (!gotten) {
+      fatal(`encountered non-existant node '${key}'`);
+    }
+    return gotten;
+  }
+  getType(key: string): string {
+    const node = this.get(key);
+    switch (node.tag) {
+      case "array":
+      case "struct":
+        return toTypeName(node.key);
+      case "primitive":
+        switch (node.type) {
+          case "str":
+            return "char*";
+          case "int":
+            return "int64_t";
+          case "bool":
+            return "bool";
+          default:
+            return assertUnreachable(node.type);
+        }
+      default:
+        assertUnreachable(node);
+    }
+  }
 }
 
 export function fieldName(name: string): string {
