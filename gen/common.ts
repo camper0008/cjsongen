@@ -43,16 +43,16 @@ export class NodeMap {
   }
 }
 
-export function fieldName(name: string): string {
-  const last = stripComments(name).split(".").pop();
+export function toFieldName(key: string): string {
+  const last = stripComments(key).split(".").pop();
   if (!last) {
     fatal(`encountered invalid field name '${last}'`);
   }
   return last;
 }
 
-export function toTypeName(name: string) {
-  const chars = stripComments(name).split("").toReversed();
+export function toTypeName(key: string) {
+  const chars = stripComments(key).split("").toReversed();
   let result = "";
   let toUpper = true;
   while (true) {
@@ -72,20 +72,6 @@ export function toTypeName(name: string) {
     toUpper = false;
   }
   return result;
-}
-
-export function getType(name: string, map: NodeMap) {
-  const node = map.get(name);
-  if (!node) fatal(`attempted to access invalid field '${name}'`);
-  switch (node.tag) {
-    case "array":
-    case "struct":
-      return toTypeName(node.key);
-    case "primitive":
-      return node.type;
-    default:
-      assertUnreachable(node);
-  }
 }
 
 export function stripComments(name: string): string {

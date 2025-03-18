@@ -1,12 +1,6 @@
 import { assertUnreachable, fatal } from "../../assert.ts";
 import { ArrayNode, Node, PrimitiveNode, StructNode } from "../../repr/node.ts";
-import {
-  fieldName,
-  NodeMap,
-  nodeMap,
-  stripComments,
-  toTypeName,
-} from "../common.ts";
+import { NodeMap, stripComments, toFieldName, toTypeName } from "../common.ts";
 
 function toFnName(name: string): string {
   const chars = stripComments(name).split("").toReversed();
@@ -71,12 +65,12 @@ function defineFieldStatement(field: ArrayNode | StructNode): string {
   switch (field.tag) {
     case "struct": {
       const fn = fnName(field);
-      const name = fieldName(field.key);
+      const name = toFieldName(field.key);
       return `  char* ${name} = ${fn}(model->${name});\n`;
     }
     case "array": {
       const fn = fnName(field);
-      const name = fieldName(field.key);
+      const name = toFieldName(field.key);
       return `  char* ${name} = ${fn}(model->${name}, model->${name}_size);\n`;
     }
     default:
@@ -85,20 +79,20 @@ function defineFieldStatement(field: ArrayNode | StructNode): string {
 }
 
 function freeStatement(field: ArrayNode | StructNode): string {
-  return `  free(${fieldName(field.key)});\n`;
+  return `  free(${toFieldName(field.key)});\n`;
 }
 function formatFieldSpread(fields: Node[]): string {
   return fields
     .map((field) => {
       if (field.tag !== "primitive") {
-        return fieldName(field.key);
+        return toFieldName(field.key);
       }
       switch (field.type) {
         case "str":
         case "int":
-          return `model->${fieldName(field.key)}`;
+          return `model->${toFieldName(field.key)}`;
         case "bool":
-          return `model->${fieldName(field.key)} ? "true" : "false"`;
+          return `model->${toFieldName(field.key)} ? "true" : "false"`;
         default:
           assertUnreachable(field.type);
       }
@@ -134,7 +128,7 @@ function formatVariableStatement(node: StructNode, map: NodeMap): string {
       default:
         assertUnreachable(node);
     }
-    return `\\"${fieldName(node.key)}\\":${fmt}`;
+    return `\\"${toFieldName(node.key)}\\":${fmt}`;
   }
   let res = "";
   res += `const char* _format = "{`;
