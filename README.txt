@@ -12,3 +12,5 @@ roadmap:
 - [x] typedef gen
 - [x] json ser-gen
 - [ ] json de-gen
+
+see main.ts for example

@@ -1,5 +1,5 @@
-import { assertUnreachable, fatal } from "../../assert.ts";
-import { ArrayNode, Node, PrimitiveNode, StructNode } from "../../repr/node.ts";
+import { assertUnreachable } from "../../assert.ts";
+import { ArrayNode, Node, StructNode } from "../../repr/node.ts";
 import { NodeMap, stripComments, toFieldName, toTypeName } from "../common.ts";
 
 function toFnName(name: string): string {
@@ -238,11 +238,9 @@ function arraySerializer(
   res += `${arrayFnDefinition(node, map)} {\n`;
 
   res += "  if (size == 0) {\n";
-  res += "    char* buf = malloc(3);\n";
-  res += "    buf[0] = '[';\n";
-  res += "    buf[1] = ']';\n";
-  res += "    buf[2] = '\\0';\n";
-  res += "    return buf;\n";
+  res += "    char* buffer = malloc(3);\n";
+  res += "    *buffer = { '[', ']', '\0' };\n";
+  res += "    return buffer;\n";
   res += "  }\n";
 
   if (data.tag !== "primitive") {
