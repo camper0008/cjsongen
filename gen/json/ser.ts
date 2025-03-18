@@ -67,10 +67,7 @@ function structFnDefinition(node: StructNode): string {
   return `char* ${fnName(node)}(const ${toTypeName(node.key)}* model)`;
 }
 
-function defineFieldStatement(field: Node): string {
-  if (field.tag === "primitive") {
-    fatal(`tried to define field statement for primitive '${field.type}'`);
-  }
+function defineFieldStatement(field: ArrayNode | StructNode): string {
   switch (field.tag) {
     case "struct": {
       const fn = fnName(field);
@@ -87,25 +84,64 @@ function defineFieldStatement(field: Node): string {
   }
 }
 
-function freeStatement(field: Node): string {
-  if (field.tag === "primitive") {
-    fatal(`tried to define free statement for primitive '${field.type}'`);
-  }
+function freeStatement(field: ArrayNode | StructNode): string {
   return `  free(${fieldName(field.key)});\n`;
 }
-function fieldSpread(fields: Node[]): string {
+function formatFieldSpread(fields: Node[]): string {
   return fields
-    .filter((field) => field.tag !== "primitive")
-    .map((field) => fieldName(field.key))
+    .map((field) => {
+      if (field.tag !== "primitive") {
+        return fieldName(field.key);
+      }
+      switch (field.type) {
+        case "str":
+        case "int":
+          return `model->${fieldName(field.key)}`;
+        case "bool":
+          return `model->${fieldName(field.key)} ? "true" : "false"`;
+        default:
+          assertUnreachable(field.type);
+      }
+    })
     .join(", ");
 }
 
-function formatVariableStatement(node: StructNode): string {
+function formatVariableStatement(node: StructNode, map: NodeMap): string {
+  function nodeFormat(node: Node): string {
+    let fmt;
+    switch (node.tag) {
+      case "struct":
+      case "array": {
+        fmt = "%s";
+        break;
+      }
+      case "primitive": {
+        switch (node.type) {
+          case "str":
+            fmt = '\\"%s\\"';
+            break;
+          case "int":
+            fmt = "%ld";
+            break;
+          case "bool":
+            fmt = "%s";
+            break;
+          default:
+            return assertUnreachable(node.type);
+        }
+        break;
+      }
+      default:
+        assertUnreachable(node);
+    }
+    return `\\"${fieldName(node.key)}\\":${fmt}`;
+  }
   let res = "";
   res += `const char* _format = "{`;
   const fields = node.fields
-    .map((key) => `\\"${fieldName(key)}\\":%s`)
-    .join(".key,");
+    .map((key) => map.get(key))
+    .map((node) => nodeFormat(node))
+    .join("");
   res += fields;
   res += '}"';
   return res;
@@ -155,18 +191,18 @@ function structSerializer(
 ): string {
   let res = "";
   res += `${structFnDefinition(node)} {\n`;
-  res += `  ${formatVariableStatement(node)};\n`;
+  res += `  ${formatVariableStatement(node, map)};\n`;
   res += node.fields
-    .map((v) => map.get(v))
+    .map((key) => map.get(key))
     .filter((node) => node.tag !== "primitive")
     .map(defineFieldStatement)
     .join("");
   res += `  size_t _size = snprintf(NULL, 0, _format, ${
-    fieldSpread(node.fields.map((key) => map.get(key)))
+    formatFieldSpread(node.fields.map((key) => map.get(key)))
   });\n`;
   res += `  char* _buffer = malloc(_size + 1);\n`;
   res += `  sprintf(_buffer, _format, ${
-    fieldSpread(node.fields.map((key) => map.get(key)))
+    formatFieldSpread(node.fields.map((key) => map.get(key)))
   });\n`;
   res += node.fields
     .map((key) => map.get(key))
