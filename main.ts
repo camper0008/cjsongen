@@ -1,5 +1,4 @@
-import * as gen from "./gen/mod.ts";
-import * as repr from "./repr/mod.ts";
+import { gen, repr } from "./mod.ts";
 
 if (import.meta.main) {
   const def: repr.hir.Struct[] = [
