@@ -6,9 +6,9 @@ function structField(node: Node, map: NodeMap): string {
     case "struct":
       return `  ${toTypeName(node.key)} ${toFieldName(node.key)};`;
     case "array": {
-      const dataType = map.getType(`${node.key}.${node.data}`);
+      const dataType = map.getType(node.data);
       let res = "";
-      res += `  ${dataType} *${toFieldName(node.key)};\n`;
+      res += `  ${dataType}* ${toFieldName(node.key)};\n`;
       res += `  size_t ${toFieldName(node.key)}_size;`;
       return res;
     }

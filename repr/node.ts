@@ -33,8 +33,8 @@ function isChildOf(parent: string, child: string): boolean {
 function nodeFromStruct(parent: string, fields: mir.StructFields): Node[] {
   const children = fieldNodes(parent, fields);
   const root: Node = {
-    tag: "struct",
     key: parent,
+    tag: "struct",
     fields: children
       .filter((child) => isChildOf(parent, child.key))
       .map((child) => child.key),
@@ -55,14 +55,14 @@ function nodeFromField(
       const children = nodeFromField(key, ["#array_data#", fieldValue.value]);
       return [...children, {
         tag: "array",
-        data: "#array_data#",
-        key: key,
+        key,
+        data: `${key}.#array_data#`,
       }];
     }
     case "primitive":
       return [{
         tag: "primitive",
-        key: key,
+        key,
         type: fieldValue.value,
       }];
   }

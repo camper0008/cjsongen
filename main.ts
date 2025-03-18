@@ -15,6 +15,8 @@ if (import.meta.main) {
     .map(repr.fromMir);
 
   console.log(tree.map(gen.typedef.structDef).join("\n\n"));
+  console.log();
   console.log(tree.map(gen.json.serializerDef).join("\n\n"));
+  console.log();
   console.log(tree.map(gen.json.serializerImpl).join("\n\n"));
 }

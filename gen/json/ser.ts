@@ -28,18 +28,13 @@ function toFnName(name: string): string {
   return res;
 }
 
-type FnNameNode =
-  | {
-    tag: StructNode["tag"] | ArrayNode["tag"];
-    key: Node["key"];
-  }
-  | { tag: PrimitiveNode["tag"]; type: PrimitiveNode["type"] };
+type FnNameNode = {
+  tag: StructNode["tag"] | ArrayNode["tag"];
+  key: Node["key"];
+};
 
 function fnName(node: FnNameNode): string {
   switch (node.tag) {
-    case "primitive": {
-      return fatal(`tried to get primitive fn for primitive ${node.type}`);
-    }
     case "struct": {
       return `${toFnName(node.key)}_to_json`;
     }
@@ -47,14 +42,38 @@ function fnName(node: FnNameNode): string {
       return `${toFnName(node.key)}_to_json_array`;
     }
     default:
-      assertUnreachable(node);
+      assertUnreachable(node.tag);
   }
 }
 
-function arrayFnDefinition(node: ArrayNode): string {
-  return `char* ${fnName(node)}(const ${
-    toTypeName(node.key)
-  }* model, size_t size)`;
+function arrayFnDefinition(node: ArrayNode, map: NodeMap): string {
+  const data = map.get(node.data);
+  let type;
+  switch (data.tag) {
+    case "struct":
+    case "array":
+      type = toTypeName(data.key);
+      break;
+    case "primitive": {
+      switch (data.type) {
+        case "str":
+          type = "char*";
+          break;
+        case "int":
+          type = "int64_t";
+          break;
+        case "bool":
+          type = "bool";
+          break;
+        default:
+          return assertUnreachable(data.type);
+      }
+      break;
+    }
+    default:
+      return assertUnreachable(data);
+  }
+  return `char* ${fnName(node)}(const ${type}* model, size_t size)`;
 }
 
 function structFnDefinition(node: StructNode): string {
@@ -141,38 +160,129 @@ function formatVariableStatement(node: StructNode, map: NodeMap): string {
   return res;
 }
 
-function arrayItemToJsonStatement(node: ArrayNode, i: string) {
-  const toJson = fnName({ tag: "struct", key: node.key });
-  return `char* value = ${toJson}(&model[${i}])`;
+function arrayItemDefineValue(
+  node: ArrayNode | StructNode,
+  i: string | number,
+): string {
+  switch (node.tag) {
+    case "struct":
+    case "array": {
+      const toJson = fnName(node);
+      return `char* value = ${toJson}(&model[${i}])`;
+    }
+    default:
+      assertUnreachable(node);
+  }
+}
+
+function arrayItemFormatString(
+  node: Node,
+): string {
+  switch (node.tag) {
+    case "struct":
+    case "array": {
+      return "%s";
+    }
+    case "primitive": {
+      switch (node.type) {
+        case "int":
+          return `%ld`;
+        case "str":
+          return `\"%s\"`;
+        case "bool":
+          return `%s`;
+        default:
+          return assertUnreachable(node.type);
+      }
+    }
+    default:
+      assertUnreachable(node);
+  }
+}
+
+function arrayItemFormatValue(
+  node: Node,
+  i: string,
+): string {
+  switch (node.tag) {
+    case "struct":
+    case "array": {
+      return "value";
+    }
+    case "primitive": {
+      switch (node.type) {
+        case "int":
+          return `model[${i}]`;
+        case "str":
+          return `model[${i}]`;
+        case "bool":
+          return `model[${i}] ? "true" : "false"`;
+        default:
+          return assertUnreachable(node.type);
+      }
+    }
+    default:
+      assertUnreachable(node);
+  }
 }
 
 function arraySerializer(
   node: ArrayNode,
   map: NodeMap,
 ): string {
+  const data = map.get(node.data);
+  const fmtValue = (i: string | number) =>
+    arrayItemFormatValue(data, i.toString());
+  const fmtString = arrayItemFormatString(data);
   let res = "";
-  res += `${arrayFnDefinition(node)} {\n`;
+  res += `${arrayFnDefinition(node, map)} {\n`;
 
-  res += `  ${arrayItemToJsonStatement(node, "0")};\n`;
-  res += '  size_t buffer_size = snprintf(NULL, 0, "[%s", value);\n';
+  res += "  if (size == 0) {\n";
+  res += "    char* buf = malloc(3);\n";
+  res += "    buf[0] = '[';\n";
+  res += "    buf[1] = ']';\n";
+  res += "    buf[2] = '\\0';\n";
+  res += "    return buf;\n";
+  res += "  }\n";
+
+  if (data.tag !== "primitive") {
+    res += `  ${arrayItemDefineValue(data, 0)};\n`;
+  }
+  res += `  size_t buffer_size = snprintf(NULL, 0, "[${fmtString}", ${
+    fmtValue(0)
+  });\n`;
   res += "  char* buffer = malloc(buffer_size + 1);\n";
-  res += '  sprintf(buffer, "[%s", value);\n';
-  res += "  free(value);\n";
+  res += `  sprintf(buffer, "[${fmtString}", ${fmtValue(0)});\n`;
+  if (data.tag !== "primitive") {
+    res += "  free(value);";
+  }
 
   res += "  for (size_t i = 1; i < size; ++i) {\n";
-  res += `    ${arrayItemToJsonStatement(node, "i")};\n`;
-  res += '    buffer_size = snprintf(NULL, 0, "%s,%s", buffer, value);\n';
-  res += "    buffer = realloc(buffer, buffer_size + 1);\n";
-  res += "    temp = malloc(buffer_size + 1);\n";
+  if (data.tag !== "primitive") {
+    res += `  ${arrayItemDefineValue(data, "i")};\n`;
+  }
+  res += "    char* temp = malloc(buffer_size + 1);\n";
   res += "    memcpy(temp, buffer, buffer_size + 1);\n";
-  res += '    sprintf(buffer, "%s,%s", temp, value);\n';
-  res += "    free(value);\n";
+  res += `\n`;
+  res += `    buffer_size = snprintf(NULL, 0, "%s,${fmtString}", buffer, ${
+    fmtValue("i")
+  });\n`;
+  res += "    buffer = realloc(buffer, buffer_size + 1);\n";
+  res += `    sprintf(buffer, "%s,${fmtString}", temp, ${fmtValue("i")});\n`;
+  res += `\n`;
+
+  if (data.tag !== "primitive") {
+    res += "    free(value);";
+  }
   res += "    free(temp);\n";
   res += "  }\n";
 
+  res += "  char* temp = malloc(buffer_size + 1);\n";
+  res += "  memcpy(temp, buffer, buffer_size + 1);\n";
   res += '  buffer_size = snprintf(NULL, 0, "%s]", buffer);\n';
   res += "  buffer = realloc(buffer, buffer_size + 1);\n";
-  res += '  sprintf(buffer, "%s]", buffer);\n';
+  res += '  sprintf(buffer, "%s]", temp_buffer);\n';
+  res += "  free(temp);\n";
 
   res += `  return buffer;\n`;
   res += "}";
@@ -208,17 +318,19 @@ function structSerializer(
   return res;
 }
 
-function defs(nodes: Node[]): string {
+function definitions(nodes: Node[], map: NodeMap): string {
   return nodes
     .filter((node) => node.tag === "struct" || node.tag === "array")
     .map((node) =>
-      node.tag === "struct" ? structFnDefinition(node) : arrayFnDefinition(node)
+      node.tag === "struct"
+        ? structFnDefinition(node)
+        : arrayFnDefinition(node, map)
     )
     .map((v) => `${v};`)
     .join("\n");
 }
 
-function impls(nodes: Node[], map: NodeMap): string {
+function implentations(nodes: Node[], map: NodeMap): string {
   return nodes
     .filter((node) => node.tag === "struct" || node.tag === "array")
     .map((node) =>
@@ -230,10 +342,11 @@ function impls(nodes: Node[], map: NodeMap): string {
 }
 
 export function serializerDef(nodes: Node[]): string {
-  return defs(nodes);
+  const map = new NodeMap(nodes);
+  return definitions(nodes, map);
 }
 
 export function serializerImpl(nodes: Node[]): string {
   const map = new NodeMap(nodes);
-  return impls(nodes, map);
+  return implentations(nodes, map);
 }
