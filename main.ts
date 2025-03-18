@@ -5,15 +5,7 @@ if (import.meta.main) {
     {
       name: "receipts_one_res",
       values: {
-        receipt_id: "int",
-        timestamp: "str",
-        products: [{
-          product_id: "int",
-          name: "str",
-          price_dkk_cent: "int",
-          amount: "int",
-          twue: "bool",
-        }],
+        v: ["bool"],
       },
     },
   ] as const;

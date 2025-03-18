@@ -4,16 +4,16 @@ import { NodeMap, toFieldName, toTypeName } from "./common.ts";
 function structField(node: Node, map: NodeMap): string {
   switch (node.tag) {
     case "struct":
-      return `${toTypeName(node.key)} ${toFieldName(node.key)};`;
+      return `  ${toTypeName(node.key)} ${toFieldName(node.key)};`;
     case "array": {
-      const dataType = map.getType(node.key);
+      const dataType = map.getType(`${node.key}.${node.data}`);
       let res = "";
-      res += `${dataType} *${toFieldName(node.key)};\n`;
-      res += `size_t ${toFieldName(node.key)}_size;`;
+      res += `  ${dataType} *${toFieldName(node.key)};\n`;
+      res += `  size_t ${toFieldName(node.key)}_size;`;
       return res;
     }
     case "primitive":
-      return `${node.type} ${toFieldName(node.key)};`;
+      return `  ${node.type} ${toFieldName(node.key)};`;
   }
 }
 
@@ -25,7 +25,7 @@ function struct(
   res += "typedef struct {\n";
   res += node.fields
     .map((key) => map.get(key))
-    .map((node) => `  ${structField(node, map)}`)
+    .map((node) => structField(node, map))
     .join("\n");
   res += `\n} ${toTypeName(node.key)};`;
   return res;
