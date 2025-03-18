@@ -73,7 +73,7 @@ function primitiveFnImplementation(
     case "char*":
       res += '  size_t size = snprintf(NULL, 0, "\\"%s\\"", value);\n';
       res += "  char* buffer = malloc(size + 1);\n";
-      res += '  sprintf(buffer, ""%s"", ptr);\n';
+      res += '  sprintf(buffer, "\\"%s\\"", value);\n';
       res += "  return buffer;\n";
       break;
     case "int64_t":
