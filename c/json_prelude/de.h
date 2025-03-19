@@ -9,42 +9,37 @@ typedef struct {
   char *content;
   size_t len;
   size_t capacity;
-} String;
+} DeStr;
 
-void construct_string(String *str);
-void string_push(String *str, char ch);
-void destroy_string(String *str);
+void construct_de_str(DeStr *str);
+void de_str_push(DeStr *str, char ch);
+void de_str_copy_to_c_str(DeStr *str, char **dest);
+void destroy_de_str(DeStr *str);
 
 typedef struct {
   const char *input;
   char *error;
   size_t idx;
   size_t len;
-} Ctx;
+} DeCtx;
 
 typedef enum {
-  CtxOk,
-  CtxBadInput,
-} CtxResult;
+  DeCtxResult_Ok,
+  DeCtxResult_BadInput,
+} DeCtxResult;
 
-void construct_ctx(Ctx *ctx, const char *input, size_t len);
-void destroy_ctx(Ctx *ctx);
-void ctx_skip_whitespace(Ctx *ctx);
+void construct_de_ctx(DeCtx *ctx, const char *input, size_t len);
+void destroy_de_ctx(DeCtx *ctx);
+void de_ctx_skip_whitespace(DeCtx *ctx);
 
-CtxResult ctx_expect_either(Ctx *ctx, char expect0, char expect1,
-                            const char *parsing);
-CtxResult ctx_expect(Ctx *ctx, char expected, const char *parsing);
-CtxResult ctx_expect_not_done(Ctx *ctx, const char *parsing);
+DeCtxResult de_ctx_expect_either_char(DeCtx *ctx, char expect0, char expect1,
+                                      const char *parsing);
+DeCtxResult de_ctx_expect_char(DeCtx *ctx, char expected, const char *parsing);
+DeCtxResult de_ctx_expect_not_done(DeCtx *ctx, const char *parsing);
 
-CtxResult ctx_deserialize_bool(Ctx *ctx, bool *out);
-char ctx_map_escaped_char(char in);
-// (!) The caller is not allowed to construct the `String` beforehand
-// (!) `ctx_deserialize_string` will construct the `String`
-// (!) The function asserts that the `String` is unconstructed,
-// (!) and the `assert` will fail if it is the case
-//
-// It is the caller's responsibility to call `destroy_string` after use
-CtxResult ctx_deserialize_string(Ctx *ctx, String *out);
-CtxResult ctx_deserialize_int(Ctx *ctx, int64_t *out);
+DeCtxResult de_ctx_deserialize_bool(DeCtx *ctx, bool *out);
+char de_ctx_map_escaped_char(char in);
+DeCtxResult de_ctx_deserialize_str(DeCtx *ctx, char **out);
+DeCtxResult de_ctx_deserialize_int(DeCtx *ctx, int64_t *out);
 
 #endif
