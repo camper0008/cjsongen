@@ -5,7 +5,7 @@ if (import.meta.main) {
     {
       name: "receipts_one_res",
       values: {
-        v: ["bool"],
+        v: "str",
       },
     },
   ] as const;

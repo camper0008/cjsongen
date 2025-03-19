@@ -1,3 +1,4 @@
+import { assertUnreachable } from "../assert.ts";
 import { Node, StructNode } from "../repr/node.ts";
 import { NodeMap, toFieldName, toTypeName } from "./common.ts";
 
@@ -12,8 +13,23 @@ function structField(node: Node, map: NodeMap): string {
       res += `  size_t ${toFieldName(node.key)}_size;`;
       return res;
     }
-    case "primitive":
-      return `  ${node.type} ${toFieldName(node.key)};`;
+    case "primitive": {
+      let type;
+      switch (node.type) {
+        case "str":
+          type = "char*";
+          break;
+        case "int":
+          type = "int64_t";
+          break;
+        case "bool":
+          type = "bool";
+          break;
+        default:
+          assertUnreachable(node.type);
+      }
+      return `  ${type} ${toFieldName(node.key)};`;
+    }
   }
 }
 

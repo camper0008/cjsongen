@@ -1,37 +1,7 @@
 import { assertUnreachable } from "../../assert.ts";
 import { ArrayNode, Node, StructNode } from "../../repr/node.ts";
-import { NodeMap, stripComments, toFieldName, toTypeName } from "../common.ts";
-
-function toFnName(name: string): string {
-  const chars = stripComments(name).split("").toReversed();
-  let res = "";
-  while (true) {
-    const char = chars.pop();
-    if (!char) {
-      break;
-    }
-    if (char === ".") {
-      res += "_";
-      continue;
-    }
-    const isUppercaseLetter = char.toUpperCase() === char &&
-      char.toLowerCase() !== char.toUpperCase();
-    if (isUppercaseLetter) {
-      if (res.length > 0) {
-        res += "_";
-      }
-      res += char.toLowerCase();
-      continue;
-    }
-    res += char;
-  }
-  return res;
-}
-
-type FnNameNode = {
-  tag: StructNode["tag"] | ArrayNode["tag"];
-  key: Node["key"];
-};
+import { NodeMap, toFieldName, toTypeName } from "../common.ts";
+import { FnNameNode, toFnName } from "./common.ts";
 
 function fnName(node: FnNameNode): string {
   switch (node.tag) {
@@ -328,7 +298,7 @@ function definitions(nodes: Node[], map: NodeMap): string {
     .join("\n");
 }
 
-function implementations(nodes: Node[], map: NodeMap): string {
+function implentations(nodes: Node[], map: NodeMap): string {
   return nodes
     .filter((node) => node.tag === "struct" || node.tag === "array")
     .map((node) =>
@@ -346,5 +316,5 @@ export function deserializerDef(nodes: Node[]): string {
 
 export function deserializerImpl(nodes: Node[]): string {
   const map = new NodeMap(nodes);
-  return implementations(nodes, map);
+  return implentations(nodes, map);
 }

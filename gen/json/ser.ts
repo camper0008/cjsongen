@@ -1,37 +1,7 @@
 import { assertUnreachable } from "../../assert.ts";
 import { ArrayNode, Node, StructNode } from "../../repr/node.ts";
-import { NodeMap, stripComments, toFieldName, toTypeName } from "../common.ts";
-
-function toFnName(name: string): string {
-  const chars = stripComments(name).split("").toReversed();
-  let res = "";
-  while (true) {
-    const char = chars.pop();
-    if (!char) {
-      break;
-    }
-    if (char === ".") {
-      res += "_";
-      continue;
-    }
-    const isUppercaseLetter = char.toUpperCase() === char &&
-      char.toLowerCase() !== char.toUpperCase();
-    if (isUppercaseLetter) {
-      if (res.length > 0) {
-        res += "_";
-      }
-      res += char.toLowerCase();
-      continue;
-    }
-    res += char;
-  }
-  return res;
-}
-
-type FnNameNode = {
-  tag: StructNode["tag"] | ArrayNode["tag"];
-  key: Node["key"];
-};
+import { NodeMap, toFieldName, toTypeName } from "../common.ts";
+import { FnNameNode, toFnName } from "./common.ts";
 
 function fnName(node: FnNameNode): string {
   switch (node.tag) {
