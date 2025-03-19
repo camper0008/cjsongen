@@ -1,9 +1,9 @@
-import { colorPrint } from "./colored_c.ts";
+import { printC } from "./pprint.ts";
 import { gen, repr } from "./mod.ts";
 
 function pprint(value: string = "", useColor = false) {
   if (useColor) {
-    colorPrint(value);
+    printC(value);
   } else {
     console.log(value);
   }
