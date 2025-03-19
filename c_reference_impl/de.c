@@ -10,11 +10,23 @@ void construct_string(String *str) {
   str->len = 0;
 }
 
+void string_push(String *str, char ch) {
+  assert(str->content != NULL);
+  if (str->len >= str->capacity) {
+    str->capacity *= 2;
+    str->content = realloc(str->content, str->capacity);
+  }
+  str->content[str->len] = ch;
+  str->len += 1;
+}
+
 void destroy_string(String *str) {
   assert(str->content != NULL);
   free(str->content);
   str->content = NULL;
 }
+
+#define CTX_ERROR_SIZE 128
 
 void construct_ctx(Ctx *ctx, const char *input, size_t len) {
   assert(ctx->error == NULL);
@@ -44,43 +56,86 @@ void ctx_skip_whitespace(Ctx *ctx) {
   }
 }
 
+CtxResult ctx_expect_not_done(Ctx *ctx, const char *parsing) {
+  if (ctx->idx >= ctx->len) {
+    snprintf(ctx->error, CTX_ERROR_SIZE, "got EOF while parsing '%s'", parsing);
+    return CtxBadInput;
+  }
+  return CtxOk;
+}
+
+CtxResult ctx_expect_either_char(Ctx *ctx, char expect0, char expect1,
+                                 const char *parsing) {
+  if (ctx->idx >= ctx->len) {
+    snprintf(ctx->error, CTX_ERROR_SIZE,
+             "expected '%c' or '%c' while parsing '%s', got EOF", expect0,
+             expect1, parsing);
+    return CtxBadInput;
+  }
+  char current = ctx->input[ctx->idx];
+  if (current != expect0 && current != expect1) {
+    snprintf(ctx->error, CTX_ERROR_SIZE,
+             "expected '%c' or '%c' while parsing '%s', got '%c'", expect0,
+             expect1, parsing, current);
+    return CtxBadInput;
+  }
+  return CtxOk;
+}
+
+CtxResult ctx_expect_char(Ctx *ctx, char expected, const char *parsing) {
+  if (ctx->idx >= ctx->len) {
+    snprintf(ctx->error, CTX_ERROR_SIZE,
+             "expected '%c' while parsing '%s', got EOF", expected, parsing);
+    return CtxBadInput;
+  }
+  char current = ctx->input[ctx->idx];
+  if (current != expected) {
+    snprintf(ctx->error, CTX_ERROR_SIZE,
+             "expected '%c' while parsing '%s', got '%c'", expected, parsing,
+             current);
+    return CtxBadInput;
+  }
+  return CtxOk;
+}
+
 void destroy_ctx(Ctx *ctx) {
   assert(ctx->error != NULL);
   free(ctx->error);
   ctx->error = NULL;
 }
 
-int deserialize_bool(Ctx *ctx, bool *out) {
+CtxResult ctx_deserialize_bool(Ctx *ctx, bool *out) {
+  CtxResult expect_res = ctx_expect_either_char(ctx, 't', 'f', "bool");
+  if (expect_res != CtxOk) {
+    return expect_res;
+  }
+
+  char mode = ctx->input[ctx->idx];
+  size_t bool_len = 0;
+
   char bools[2][5] = {"true", "false"};
-  char mode = '_';
-  size_t len = 0;
+
   while (true) {
-    if (ctx->idx >= ctx->len) {
-      snprintf(ctx->error, CTX_ERROR_SIZE, "reached EOF parsing bool");
-      return -1;
+    char *current_bool = bools[mode == 't' ? 0 : '1'];
+    char expected = current_bool[bool_len];
+
+    int expect_res = ctx_expect_char(ctx, expected, "bool");
+    if (expect_res != CtxOk) {
+      return expect_res;
     }
-    char curr = ctx->input[ctx->idx];
+
+    bool_len += 1;
+    if (mode == 't' && bool_len == 4) {
+      break;
+    } else if (mode == 'f' && bool_len == 5) {
+      break;
+    }
+
     ctx->idx += 1;
-    if (mode == '_') {
-      mode = curr;
-      if (mode != 't' && mode != 'f') {
-        snprintf(ctx->error, CTX_ERROR_SIZE,
-                 "expected 't' or 'f', got '%c' while parsing bool", curr);
-        return -1;
-      }
-    }
-    char expected = bools[mode == 't' ? 0 : 1][len];
-    if (expected != curr) {
-      snprintf(ctx->error, CTX_ERROR_SIZE,
-               "expected '%c', got '%c' while parsing bool", expected, curr);
-      return -1;
-    }
-    len += 1;
-    if (mode == 't' && len == 4) {
-      break;
-    }
-    if (mode == 'f' && len == 5) {
-      break;
+
+    CtxResult res = ctx_expect_not_done(ctx, "bool");
+    if (res != CtxOk) {
+      return res;
     }
   }
 
@@ -95,8 +150,8 @@ int deserialize_bool(Ctx *ctx, bool *out) {
   return 0;
 }
 
-char deserialize_string_escape_char(char id) {
-  switch (id) {
+char ctx_map_escaped_char(char in) {
+  switch (in) {
   case '0':
     return '\0';
   case 't':
@@ -106,72 +161,64 @@ char deserialize_string_escape_char(char id) {
   case 'n':
     return '\n';
   default:
-    return id;
+    return in;
   }
 }
 
-int deserialize_string(Ctx *ctx, String *out) {
+CtxResult ctx_deserialize_string(Ctx *ctx, String *out) {
+  typedef enum {
+    Parsing,
+    Escaping,
+    Done,
+  } CtxDeserializeStringMode;
 
   construct_string(out);
-  if (ctx->idx >= ctx->len) {
-    snprintf(ctx->error, CTX_ERROR_SIZE, "reached EOF parsing string");
-    return -1;
-  }
-  if (ctx->input[ctx->idx] != '"') {
-    ctx->error = malloc(64);
-    snprintf(ctx->error, CTX_ERROR_SIZE, "expected '\"' at %ld", ctx->idx);
-    return -1;
+  int res = ctx_expect_char(ctx, '"', "bool");
+  if (res != CtxOk) {
+    return res;
   }
   ctx->idx += 1;
 
-  bool done = false;
-  bool escaping = false;
+  CtxDeserializeStringMode mode = Parsing;
 
-  while (ctx->idx < ctx->len && !done) {
-    if (out->len >= out->capacity) {
-      out->capacity *= 2;
-      out->content = realloc(out->content, out->capacity);
-    }
+  while (ctx->idx < ctx->len && mode != Done) {
     char curr = ctx->input[ctx->idx];
-    ctx->idx += 1;
-    if (escaping) {
-      escaping = false;
-      out->content[out->len] = deserialize_string_escape_char(curr);
-      out->len += 1;
+
+    if (mode == Escaping) {
+      mode = Parsing;
+      string_push(out, ctx_map_escaped_char(curr));
     } else if (curr == '\\') {
-      escaping = true;
+      mode = Escaping;
     } else if (curr == '"') {
-      done = true;
+      mode = Done;
     } else {
-      out->content[out->len] = curr;
-      out->len += 1;
+      string_push(out, curr);
     }
+    ctx->idx += 1;
   }
-  if (!done) {
-    snprintf(ctx->error, CTX_ERROR_SIZE, "reached EOF parsing string");
-    return -1;
+
+  if (mode != Done) {
+    return ctx_expect_not_done(ctx, "string");
   }
-  return 0;
+
+  return CtxOk;
 }
 
-int deserialize_int(Ctx *ctx, int64_t *out) {
+CtxResult ctx_deserialize_int(Ctx *ctx, int64_t *out) {
   size_t len = 0;
   *out = 0;
   while (true) {
-    if (ctx->idx >= ctx->len) {
-      snprintf(ctx->error, CTX_ERROR_SIZE, "reached EOF parsing int");
-      return -1;
+    CtxResult is_not_eof_res = ctx_expect_not_done(ctx, "int");
+    if (is_not_eof_res != CtxOk) {
+      return is_not_eof_res;
     }
     char current = ctx->input[ctx->idx];
-    if (!(current >= '0' && current <= '9')) {
+    bool is_not_number = !(current >= '0' && current <= '9');
+    bool starts_with_zero = (current == '0' && len == 0);
+    if (is_not_number || starts_with_zero) {
       break;
     }
     ctx->idx += 1;
-    if (len == 0 && current == '0') {
-      snprintf(ctx->error, CTX_ERROR_SIZE,
-               "expected '1'..'9', got '0' while parsing int");
-      return -1;
-    }
     *out *= 10;
     *out += current - '0';
     len += 1;
@@ -179,8 +226,8 @@ int deserialize_int(Ctx *ctx, int64_t *out) {
   if (len == 0) {
     char current = ctx->input[ctx->idx];
     snprintf(ctx->error, CTX_ERROR_SIZE,
-             "expected '0'..'9', got '%c' while parsing int", current);
-    return -1;
+             "expected '1'..'9', got '%c' while parsing int", current);
+    return CtxBadInput;
   }
-  return 0;
+  return CtxOk;
 }
