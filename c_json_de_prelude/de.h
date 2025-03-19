@@ -1,12 +1,9 @@
 #ifndef CJSONGEN_DE
 #define CJSONGEN_DE
 
-#include <assert.h>
 #include <stdbool.h>
 #include <stddef.h>
-#include <stdio.h>
-#include <stdlib.h>
-
+#include <stdint.h>
 typedef struct {
     char* content;
     size_t len;
@@ -32,7 +29,7 @@ void destroy_ctx(Ctx* ctx);
 
 int deserialize_bool(Ctx* ctx, bool* out);
 
-char deserialize_string_escape_char(char id);
+int deserialize_int(Ctx* ctx, int64_t* out);
 
 // Will construct string for you
 // Fails if string is already constructed
