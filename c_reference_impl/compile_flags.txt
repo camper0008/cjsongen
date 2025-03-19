@@ -1,0 +1,10 @@
+-xc
+-std=c17
+-Wall
+-Wextra
+-Wpedantic
+-Wconversion
+-pedantic
+-pedantic-errors
+-Wno-unused-parameter
+-Wno-unused-function
