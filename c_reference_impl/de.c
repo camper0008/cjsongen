@@ -24,6 +24,26 @@ void construct_ctx(Ctx *ctx, const char *input, size_t len) {
   ctx->len = len;
 }
 
+void ctx_skip_whitespace(Ctx *ctx) {
+  while (true) {
+    if (ctx->idx >= ctx->len) {
+      break;
+    }
+    switch (ctx->input[ctx->idx]) {
+    case ' ':
+    case '\r':
+    case '\n':
+    case '\t': {
+      ctx->idx += 1;
+      continue;
+    }
+    default: {
+      break;
+    }
+    }
+  }
+}
+
 void destroy_ctx(Ctx *ctx) {
   assert(ctx->error != NULL);
   free(ctx->error);

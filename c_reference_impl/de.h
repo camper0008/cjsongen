@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+
 typedef struct {
   char *content;
   size_t len;
@@ -24,6 +25,8 @@ typedef struct {
 #define CTX_ERROR_SIZE 63
 
 void construct_ctx(Ctx *ctx, const char *input, size_t len);
+
+void ctx_skip_whitespace(Ctx *ctx);
 
 void destroy_ctx(Ctx *ctx);
 
