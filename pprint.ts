@@ -6,7 +6,17 @@ function isPrimitiveCType(word: string): boolean {
   return ["char", "int64_t", "bool", "void", "size_t", "true", "false"]
     .includes(
       word,
-    ) || !isNaN(parseInt(word));
+    ) || "0123456789".startsWith(word[0]);
+}
+
+function isPtr(word: string): boolean {
+  const allowed = "*";
+  return word.split("").every((c) => allowed.includes(c));
+}
+
+function isRef(word: string): boolean {
+  const allowed = "&";
+  return word.split("").every((c) => allowed.includes(c));
 }
 
 function isComplexCType(word: string): boolean {
@@ -92,10 +102,12 @@ export function printC(input: string) {
     [isPrimitiveCType, colorCss("#8ec07c")],
     [isComplexCType, colorCss("#cf8693")],
     [isString, colorCss("green")],
+    [isPtr, colorCss("yellow")],
+    [isRef, colorCss("blue")],
   ];
 
   const [format, styles] = colorizer(input, {
-    seperatorCharacters: "!=*,;{}()[] \r\t\n",
+    seperatorCharacters: "->&*,;{}()[] \r\t\n",
     predicates,
   });
   return console.log(format, ...styles);
