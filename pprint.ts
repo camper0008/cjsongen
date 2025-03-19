@@ -76,7 +76,7 @@ function colorizer(
       format += `%c${word}`;
       styles.push(wordStyle(word, predicates));
       format += `%c${char}`;
-      styles.push(wordStyle(word, predicates));
+      styles.push(wordStyle(char, predicates));
       word = "";
       continue;
     }
@@ -95,7 +95,7 @@ export function printC(input: string) {
   ];
 
   const [format, styles] = colorizer(input, {
-    seperatorCharacters: "*;{}()[] \r\t\n",
+    seperatorCharacters: "!=*,;{}()[] \r\t\n",
     predicates,
   });
   return console.log(format, ...styles);
