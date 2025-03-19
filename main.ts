@@ -1,3 +1,4 @@
+import { colorPrint } from "./colored_c.ts";
 import { gen, repr } from "./mod.ts";
 
 if (import.meta.main) {
@@ -6,6 +7,7 @@ if (import.meta.main) {
       name: "receipts_one_res",
       values: {
         v: "str",
+        x: ["str"],
       },
     },
   ] as const;
@@ -14,9 +16,11 @@ if (import.meta.main) {
     .map(repr.mir.fromHir)
     .map(repr.fromMir);
 
-  console.log(tree.map(gen.c.typedef.structDef).join("\n\n"));
+  colorPrint(
+    tree.map(gen.c.typedef.structDef).join("\n\n"),
+  );
   console.log();
-  console.log(tree.map(gen.c.json.deserializerDef).join("\n\n"));
+  colorPrint(tree.map(gen.c.json.deserializerDef).join("\n\n"));
   console.log();
-  console.log(tree.map(gen.c.json.deserializerImpl).join("\n\n"));
+  colorPrint(tree.map(gen.c.json.deserializerImpl).join("\n\n"));
 }
