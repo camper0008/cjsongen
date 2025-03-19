@@ -153,7 +153,7 @@ CtxResult ctx_deserialize_bool(Ctx *ctx, bool *out) {
 char ctx_map_escaped_char(char in) {
   switch (in) {
   case '0':
-    return '\0';
+    return '0';
   case 't':
     return '\t';
   case 'r':
@@ -161,6 +161,8 @@ char ctx_map_escaped_char(char in) {
   case 'n':
     return '\n';
   default:
+    if (in == 0)
+      return '0';
     return in;
   }
 }
