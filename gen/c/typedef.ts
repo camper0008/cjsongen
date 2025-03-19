@@ -1,5 +1,5 @@
-import { assertUnreachable } from "../assert.ts";
-import { Node, StructNode } from "../repr/node.ts";
+import { assertUnreachable } from "../../assert.ts";
+import { Node, StructNode } from "../../repr/node.ts";
 import { NodeMap, toFieldName, toTypeName } from "./common.ts";
 
 function structField(node: Node, map: NodeMap): string {

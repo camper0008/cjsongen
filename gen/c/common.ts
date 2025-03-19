@@ -1,5 +1,5 @@
-import { assertUnreachable, fatal } from "../assert.ts";
-import { Node } from "../repr/node.ts";
+import { assertUnreachable, fatal } from "../../assert.ts";
+import { Node } from "../../repr/node.ts";
 
 export class NodeMap {
   inner: Map<string, Node>;

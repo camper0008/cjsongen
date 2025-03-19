@@ -1,4 +1,4 @@
-import { ArrayNode, Node, StructNode } from "../../repr/node.ts";
+import { ArrayNode, Node, StructNode } from "../../../repr/node.ts";
 import { stripComments } from "../common.ts";
 
 export function toFnName(name: string): string {
