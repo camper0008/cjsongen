@@ -1,6 +1,6 @@
 {
   "tasks": {
-    "dev": "deno run --check --watch main.ts"
+    "dev": "deno run --check --watch main.ts --color"
   },
   "imports": {
     "@std/assert": "jsr:@std/assert@1"
