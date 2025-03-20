@@ -1,6 +1,8 @@
 #ifndef CJSONGEN_DE
 #define CJSONGEN_DE
 
+#define DE_CTX_ERROR_SIZE 128
+
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -37,9 +39,10 @@ DeCtxResult de_ctx_expect_either_char(DeCtx *ctx, char expect0, char expect1,
 DeCtxResult de_ctx_expect_char(DeCtx *ctx, char expected, const char *parsing);
 DeCtxResult de_ctx_expect_not_done(DeCtx *ctx, const char *parsing);
 
-DeCtxResult de_ctx_deserialize_bool(DeCtx *ctx, bool *out);
+DeCtxResult de_ctx_deserialize_bool(DeCtx *ctx, bool *out, const char *parsing);
 char de_ctx_map_escaped_char(char in);
-DeCtxResult de_ctx_deserialize_str(DeCtx *ctx, char **out);
-DeCtxResult de_ctx_deserialize_int(DeCtx *ctx, int64_t *out);
+DeCtxResult de_ctx_deserialize_str(DeCtx *ctx, char **out, const char *parsing);
+DeCtxResult de_ctx_deserialize_int(DeCtx *ctx, int64_t *out,
+                                   const char *parsing);
 
 #endif

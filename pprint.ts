@@ -14,6 +14,10 @@ function isPtr(word: string): boolean {
   return word.split("").every((c) => allowed.includes(c));
 }
 
+function isSpecialFunction(word: string): boolean {
+  return ["free", "malloc", "sprintf", "snprintf"].includes(word);
+}
+
 function isRef(word: string): boolean {
   const allowed = "&";
   return word.split("").every((c) => allowed.includes(c));
@@ -33,7 +37,16 @@ function isString(word: string): boolean {
 }
 
 function isCKeyword(word: string): boolean {
-  return ["if", "else", "typedef", "struct", "enum", "while", "return"]
+  return [
+    "if",
+    "else",
+    "break",
+    "typedef",
+    "struct",
+    "enum",
+    "while",
+    "return",
+  ]
     .includes(word);
 }
 
@@ -96,7 +109,10 @@ function colorizer(
   return [format, styles];
 }
 
-export function printC(input: string) {
+export function printC(input: string, color: boolean) {
+  if (!color) {
+    return console.log(input.replaceAll("%", "%%"));
+  }
   const predicates: PredicateList = [
     [isCKeyword, colorCss("#fe8019")],
     [isPrimitiveCType, colorCss("#8ec07c")],
@@ -104,9 +120,10 @@ export function printC(input: string) {
     [isString, colorCss("green")],
     [isPtr, colorCss("yellow")],
     [isRef, colorCss("blue")],
+    [isSpecialFunction, colorCss("blue")],
   ];
 
-  const [format, styles] = colorizer(input, {
+  const [format, styles] = colorizer(input.replaceAll("%", "%%"), {
     seperatorCharacters: "->&*,;{}()[] \r\t\n",
     predicates,
   });

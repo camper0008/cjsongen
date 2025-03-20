@@ -298,7 +298,7 @@ function definitions(nodes: Node[], map: NodeMap): string {
     .join("\n");
 }
 
-function implentations(nodes: Node[], map: NodeMap): string {
+function implementations(nodes: Node[], map: NodeMap): string {
   return nodes
     .filter((node) => node.tag === "struct" || node.tag === "array")
     .map((node) =>
@@ -316,5 +316,5 @@ export function serializerDef(nodes: Node[]): string {
 
 export function serializerImpl(nodes: Node[]): string {
   const map = new NodeMap(nodes);
-  return implentations(nodes, map);
+  return implementations(nodes, map);
 }

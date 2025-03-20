@@ -37,8 +37,6 @@ void destroy_de_str(DeStr *str) {
   str->content = NULL;
 }
 
-#define DE_CTX_ERROR_SIZE 128
-
 void construct_de_ctx(DeCtx *ctx, const char *input, size_t len) {
   assert(ctx->error == NULL);
   ctx->input = input;
@@ -60,14 +58,15 @@ void de_ctx_skip_whitespace(DeCtx *ctx) {
       ctx->idx += 1;
       continue;
     }
-    default: {
+    default:
       break;
     }
-    }
+    break;
   }
 }
 
 DeCtxResult de_ctx_expect_not_done(DeCtx *ctx, const char *parsing) {
+  de_ctx_skip_whitespace(ctx);
   if (ctx->idx >= ctx->len) {
     snprintf(ctx->error, DE_CTX_ERROR_SIZE, "got EOF while parsing '%s'",
              parsing);
@@ -78,6 +77,7 @@ DeCtxResult de_ctx_expect_not_done(DeCtx *ctx, const char *parsing) {
 
 DeCtxResult de_ctx_expect_either_char(DeCtx *ctx, char expect0, char expect1,
                                       const char *parsing) {
+  de_ctx_skip_whitespace(ctx);
   if (ctx->idx >= ctx->len) {
     snprintf(ctx->error, DE_CTX_ERROR_SIZE,
              "expected '%c' or '%c' while parsing '%s', got EOF", expect0,
@@ -95,6 +95,7 @@ DeCtxResult de_ctx_expect_either_char(DeCtx *ctx, char expect0, char expect1,
 }
 
 DeCtxResult de_ctx_expect_char(DeCtx *ctx, char expected, const char *parsing) {
+  de_ctx_skip_whitespace(ctx);
   if (ctx->idx >= ctx->len) {
     snprintf(ctx->error, DE_CTX_ERROR_SIZE,
              "expected '%c' while parsing '%s', got EOF", expected, parsing);
@@ -117,6 +118,7 @@ void destroy_de_ctx(DeCtx *ctx) {
 }
 
 DeCtxResult de_ctx_deserialize_bool(DeCtx *ctx, bool *out) {
+  de_ctx_skip_whitespace(ctx);
   DeCtxResult expect_res = de_ctx_expect_either_char(ctx, 't', 'f', "bool");
   if (expect_res != DeCtxResult_Ok) {
     return expect_res;
@@ -183,6 +185,7 @@ char de_ctx_map_escaped_char(char in) {
 }
 
 DeCtxResult de_ctx_deserialize_str(DeCtx *ctx, char **out) {
+  de_ctx_skip_whitespace(ctx);
   typedef enum {
     Parsing,
     Escaping,
@@ -234,6 +237,7 @@ DeCtxResult de_ctx_deserialize_str(DeCtx *ctx, char **out) {
 }
 
 DeCtxResult de_ctx_deserialize_int(DeCtx *ctx, int64_t *out) {
+  de_ctx_skip_whitespace(ctx);
   size_t len = 0;
   *out = 0;
   bool is_negative = false;

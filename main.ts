@@ -1,12 +1,8 @@
 import { printC } from "./pprint.ts";
 import { gen, repr } from "./mod.ts";
 
-function pprint(value: string = "", useColor = false) {
-  if (useColor) {
-    printC(value);
-  } else {
-    console.log(value);
-  }
+function print(value: string = "", useColor = false) {
+  printC(value, useColor);
 }
 
 if (import.meta.main) {
@@ -14,10 +10,9 @@ if (import.meta.main) {
 
   const def: repr.hir.Struct[] = [
     {
-      name: "receipts_one_res",
+      name: "invitation",
       values: {
-        v: "str",
-        x: ["str"],
+        names: ["str"],
       },
     },
   ] as const;
@@ -26,12 +21,12 @@ if (import.meta.main) {
     .map(repr.mir.fromHir)
     .map(repr.fromMir);
 
-  pprint(
+  print(
     tree.map(gen.c.typedef.structDef).join("\n\n"),
     useColor,
   );
-  pprint();
-  pprint(tree.map(gen.c.json.deserializerDef).join("\n\n"), useColor);
-  pprint();
-  pprint(tree.map(gen.c.json.deserializerImpl).join("\n\n"), useColor);
+  print();
+  print(tree.map(gen.c.json.deserializerDef).join("\n\n"), useColor);
+  print();
+  print(tree.map(gen.c.json.deserializerImpl).join("\n\n"), useColor);
 }

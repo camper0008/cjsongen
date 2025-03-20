@@ -70,25 +70,22 @@ function structFnDefinition(node: StructNode): string {
   }* model)`;
 }
 
-function defineFieldStatement(field: Node, level: number): string {
-  const i = " ".repeat(level * 2);
+function defineFieldStatement(
+  field: Node,
+  indent: number,
+  idx: number,
+): string {
+  const i = " ".repeat(indent * 2);
+  const i2 = " ".repeat((indent + 1) * 2);
   const fn = fnName(field);
   const name = toFieldName(field.key);
-  switch (field.tag) {
-    case "primitive":
-    case "struct": {
-      return "" +
-        `${i}res = ${fn}(ctx, &model->${name});\n` +
-        `${i}${returnIfNotOk()}\n`;
-    }
-    case "array": {
-      return "" +
-        `${i}res = ${fn}(ctx, &model->${name});\n` +
-        `${i}${returnIfNotOk()}\n`;
-    }
-    default:
-      assertUnreachable(field);
-  }
+  const elseOrIndent = idx === 0 ? i : "else ";
+  return "" +
+    `${elseOrIndent}if (strcmp(key, "${name}") == 0) {\n` +
+    `${i2}found_fields_bitmask |= (1 << ${idx});\n` +
+    `${i2}res = ${fn}(ctx, &model->${name});\n` +
+    `${i2}${returnIfNotOk()}\n` +
+    `${i}} `;
 }
 
 function arrayDeserializer(
@@ -98,6 +95,11 @@ function arrayDeserializer(
   // const data = map.get(node.data);
   let res = "";
   res += `${arrayFnDefinition(node, map)} {\n`;
+  res += "  DeCtxResult res;\n";
+  res += `  res = de_ctx_expect_char(ctx, '[', "${node.key}");\n`;
+  res += `  ctx->idx += 1;\n`;
+  res += `  res = de_ctx_expect_not_done(ctx, "${node.key}");\n`;
+  res += `  ${returnIfNotOk()}\n`;
   res += "  return DeCtxResult_Ok;\n";
   res += "}";
   return res;
@@ -109,20 +111,46 @@ function structDeserializer(
 ): string {
   let res = "";
   res += `${structFnDefinition(node)} {\n`;
-  res += "  de_ctx_skip_whitespace(ctx);\n";
   res += "  DeCtxResult res;\n";
-  res += `  res = de_ctx_expect_char(ctx, '{', "${toTypeName(node.key)}");\n`;
+  res += `  res = de_ctx_expect_char(ctx, '{', "${node.key}");\n`;
   res += `  ${returnIfNotOk()}\n`;
   res += `  size_t found_fields_bitmask = 0;\n`;
   res += `  while (true) {\n`;
   res += `    char* key;\n`;
   res += `    res = de_ctx_deserialize_str(ctx, &key);\n`;
   res += `    ${returnIfNotOk()}\n`;
+  res += `    res = de_ctx_expect_char(ctx, ':', "${node.key}");\n`;
+  res += `    ${returnIfNotOk()}\n`;
+  res += "    ctx->idx += 1;\n";
+  res += "\n";
   res += node.fields
     .map((key) => map.get(key))
-    .map((x) => defineFieldStatement(x, 2))
+    .map((x, i) => defineFieldStatement(x, 2, i))
     .join("");
+  res += "else {\n";
+  res +=
+    "      snprintf(ctx->error, DE_CTX_ERROR_SIZE, \"got invalid key '%s'\", key);\n";
+  res += "      free(key);\n";
+  res += "      return DeCtxResult_BadInput;\n";
+
+  res += "    }\n";
+  res += "    free(key);\n";
+  res += "    de_ctx_skip_whitespace(ctx);\n";
+  res += `    res = de_ctx_expect_not_done(ctx, "${node.key}");\n`;
+  res += `    ${returnIfNotOk()}\n`;
+  res += `    char curr = ctx->input[ctx->idx];\n`;
+  res += `    if (curr == ',') { continue; }\n`;
+  res += `    res = de_ctx_expect_char(ctx, '}', "${node.key}");\n`;
+  res += `    ${returnIfNotOk()}\n`;
+  res += "    break;\n";
   res += "  }\n";
+  res += `  if (found_fields_bitmask != 0b${
+    "1".repeat(node.fields.length)
+  }) {\n`;
+  res += '      snprintf(ctx->error, DE_CTX_ERROR_SIZE, "missing fields");\n';
+  res += "      return DeCtxResult_BadInput;\n";
+  res += "  }\n";
+  res += "  ctx->idx += 1;\n";
   res += "  return DeCtxResult_Ok;\n";
   res += "}";
   return res;
@@ -140,7 +168,7 @@ function definitions(nodes: Node[], map: NodeMap): string {
     .join("\n");
 }
 
-function implentations(nodes: Node[], map: NodeMap): string {
+function implementations(nodes: Node[], map: NodeMap): string {
   return nodes
     .filter((node) => node.tag === "struct" || node.tag === "array")
     .map((node) =>
@@ -157,6 +185,12 @@ export function deserializerDef(nodes: Node[]): string {
 }
 
 export function deserializerImpl(nodes: Node[]): string {
+  const warning =
+    "// WARNING: current implementation does not free allocated values if\n" +
+    '//          keys are duplicated. i.e. {"key": "val1", "key": "val2"}\n' +
+    '//          will not deallocate "val1" - same goes for structs and arrays\n' +
+    "//          possible solutions include:\n" +
+    "//          1. freeing (maybe hard) 2. disallowing duplicated keys (easy)\n\n";
   const map = new NodeMap(nodes);
-  return implentations(nodes, map);
+  return warning + implementations(nodes, map);
 }
