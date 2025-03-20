@@ -12,7 +12,7 @@ if (import.meta.main) {
     {
       name: "invitation",
       values: {
-        names: ["str"],
+        names: ["int"],
       },
     },
   ] as const;

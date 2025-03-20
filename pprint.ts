@@ -15,7 +15,7 @@ function isPtr(word: string): boolean {
 }
 
 function isSpecialFunction(word: string): boolean {
-  return ["free", "malloc", "sprintf", "snprintf"].includes(word);
+  return ["sizeof", "free", "malloc", "sprintf", "snprintf"].includes(word);
 }
 
 function isRef(word: string): boolean {

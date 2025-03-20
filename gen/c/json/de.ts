@@ -3,7 +3,7 @@ import { ArrayNode, Node, StructNode } from "../../../repr/node.ts";
 import { NodeMap, toFieldName, toTypeName } from "../common.ts";
 import { toFnName } from "./common.ts";
 
-function returnIfNotOk(): "if (res != DbCtxResult_Ok) { return res; }" {
+function returnIfNotOk(): string {
   return "if (res != DbCtxResult_Ok) { return res; }";
 }
 
@@ -32,16 +32,15 @@ function fnName(node: Node): string {
   }
 }
 
-function arrayFnDefinition(node: ArrayNode, map: NodeMap): string {
-  const data = map.get(node.data);
+function nodeType(node: Node): string {
   let type;
-  switch (data.tag) {
+  switch (node.tag) {
     case "struct":
     case "array":
-      type = toTypeName(data.key);
+      type = toTypeName(node.key);
       break;
     case "primitive": {
-      switch (data.type) {
+      switch (node.type) {
         case "str":
           type = "char*";
           break;
@@ -52,13 +51,18 @@ function arrayFnDefinition(node: ArrayNode, map: NodeMap): string {
           type = "bool";
           break;
         default:
-          return assertUnreachable(data.type);
+          return assertUnreachable(node.type);
       }
       break;
     }
     default:
-      return assertUnreachable(data);
+      return assertUnreachable(node);
   }
+  return type;
+}
+
+function arrayFnDefinition(node: ArrayNode, map: NodeMap): string {
+  const type = nodeType(map.get(node.data));
   return `DeCtxResult ${
     fnName(node)
   }(DeCtx* ctx, ${type}** model, size_t* size)`;
@@ -80,10 +84,11 @@ function defineFieldStatement(
   const fn = fnName(field);
   const name = toFieldName(field.key);
   const elseOrIndent = idx === 0 ? i : "else ";
+  const includeKey = field.tag === "primitive" ? `, "${field.key}"` : "";
   return "" +
     `${elseOrIndent}if (strcmp(key, "${name}") == 0) {\n` +
     `${i2}found_fields_bitmask |= (1 << ${idx});\n` +
-    `${i2}res = ${fn}(ctx, &model->${name});\n` +
+    `${i2}res = ${fn}(ctx, &model->${name}${includeKey});\n` +
     `${i2}${returnIfNotOk()}\n` +
     `${i}} `;
 }
@@ -92,14 +97,24 @@ function arrayDeserializer(
   node: ArrayNode,
   map: NodeMap,
 ): string {
-  // const data = map.get(node.data);
+  const data = map.get(node.data);
+  const fn = fnName(data);
+  const includeKey = data.tag === "primitive" ? `, "${data.key}"` : "";
+  const name = toFieldName(node.key);
   let res = "";
   res += `${arrayFnDefinition(node, map)} {\n`;
   res += "  DeCtxResult res;\n";
   res += `  res = de_ctx_expect_char(ctx, '[', "${node.key}");\n`;
   res += `  ctx->idx += 1;\n`;
-  res += `  res = de_ctx_expect_not_done(ctx, "${node.key}");\n`;
-  res += `  ${returnIfNotOk()}\n`;
+  res += `  *model = malloc(sizeof(${nodeType(data)}) * 48);\n`;
+  res += `  while (true) {;\n`;
+  res += `    res = de_ctx_expect_not_done(ctx, "${node.key}");\n`;
+  res += `    ${returnIfNotOk()}\n`;
+  res += `    char curr = ctx->content[ctx->idx];\n`;
+  res += `    if (curr == ']') { break; }\n`;
+  res += `    res = ${fn}(ctx, &model->${name}${includeKey});\n`;
+  res += `    ${returnIfNotOk()}\n`;
+  res += `  }\n`;
   res += "  return DeCtxResult_Ok;\n";
   res += "}";
   return res;
@@ -117,7 +132,7 @@ function structDeserializer(
   res += `  size_t found_fields_bitmask = 0;\n`;
   res += `  while (true) {\n`;
   res += `    char* key;\n`;
-  res += `    res = de_ctx_deserialize_str(ctx, &key);\n`;
+  res += `    res = de_ctx_deserialize_str(ctx, &key, "${node.key}");\n`;
   res += `    ${returnIfNotOk()}\n`;
   res += `    res = de_ctx_expect_char(ctx, ':', "${node.key}");\n`;
   res += `    ${returnIfNotOk()}\n`;
@@ -189,8 +204,14 @@ export function deserializerImpl(nodes: Node[]): string {
     "// WARNING: current implementation does not free allocated values if\n" +
     '//          keys are duplicated. i.e. {"key": "val1", "key": "val2"}\n' +
     '//          will not deallocate "val1" - same goes for structs and arrays\n' +
+    "//          or if an error occurs during parsing\n" +
     "//          possible solutions include:\n" +
-    "//          1. freeing (maybe hard) 2. disallowing duplicated keys (easy)\n\n";
+    "//          1. destroy functions 2. piet arena allocator\n" +
+    "//\n" +
+    "// WARNING: current implementation does not free allocated values if\n" +
+    "//          an error occurs parsing arrays\n" +
+    "//          possible solutions include:\n" +
+    "//          1. destroy functions 2. piet arena allocator\n\n";
   const map = new NodeMap(nodes);
   return warning + implementations(nodes, map);
 }
