@@ -46,6 +46,8 @@ function isCKeyword(word: string): boolean {
     "enum",
     "while",
     "return",
+    "continue",
+    "const",
   ]
     .includes(word);
 }

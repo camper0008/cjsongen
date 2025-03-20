@@ -7,7 +7,32 @@ function returnIfNotOk(): string {
   return "if (res != DbCtxResult_Ok) { return res; }";
 }
 
-function fnName(node: Node): string {
+function destroyFn(node: Node): string | null {
+  switch (node.tag) {
+    case "struct": {
+      return `${toFnName(node.key)}_destroy`;
+    }
+    case "array": {
+      return `${toFnName(node.key)}_destroy_array`;
+    }
+    case "primitive": {
+      switch (node.type) {
+        case "str":
+          return "de_ctx_destroy_str";
+        case "int":
+          return null;
+        case "bool":
+          return null;
+        default:
+          return assertUnreachable(node.type);
+      }
+    }
+    default:
+      assertUnreachable(node);
+  }
+}
+
+function fromJsonFn(node: Node): string {
   switch (node.tag) {
     case "struct": {
       return `${toFnName(node.key)}_from_json`;
@@ -61,15 +86,26 @@ function nodeType(node: Node): string {
   return type;
 }
 
+function destroyArrayFnDefinition(node: ArrayNode, map: NodeMap): string {
+  const type = nodeType(map.get(node.data));
+  return `void ${destroyFn(node)}(${type}** model, size_t* size)`;
+}
+
 function arrayFnDefinition(node: ArrayNode, map: NodeMap): string {
   const type = nodeType(map.get(node.data));
   return `DeCtxResult ${
-    fnName(node)
+    fromJsonFn(node)
   }(DeCtx* ctx, ${type}** model, size_t* size)`;
 }
 
+function destroyStructFnDefinition(node: StructNode): string | null {
+  return destroyFn(node)
+    ? `void ${destroyFn(node)}(${toTypeName(node.key)}* model)`
+    : null;
+}
+
 function structFnDefinition(node: StructNode): string {
-  return `DeCtxResult ${fnName(node)}(DeCtx* ctx, ${
+  return `DeCtxResult ${fromJsonFn(node)}(DeCtx* ctx, ${
     toTypeName(node.key)
   }* model)`;
 }
@@ -81,7 +117,7 @@ function defineFieldStatement(
 ): string {
   const i = " ".repeat(indent * 2);
   const i2 = " ".repeat((indent + 1) * 2);
-  const fn = fnName(field);
+  const fn = fromJsonFn(field);
   const name = toFieldName(field.key);
   const elseOrIndent = idx === 0 ? i : "else ";
   const includeKey = field.tag === "primitive" ? `, "${field.key}"` : "";
@@ -98,7 +134,7 @@ function arrayDeserializer(
   map: NodeMap,
 ): string {
   const data = map.get(node.data);
-  const fn = fnName(data);
+  const fn = fromJsonFn(data);
   const includeKey = data.tag === "primitive" ? `, "${data.key}"` : "";
   const name = toFieldName(node.key);
   let res = "";
@@ -172,6 +208,14 @@ function structDeserializer(
 }
 
 function definitions(nodes: Node[], map: NodeMap): string {
+  const destroy = nodes
+    .filter((node) => node.tag === "struct" || node.tag === "array")
+    .map((node) =>
+      node.tag === "struct"
+        ? destroyStructFnDefinition(node)
+        : destroyArrayFnDefinition(node, map)
+    )
+    .filter((node) => node !== null);
   return nodes
     .filter((node) => node.tag === "struct" || node.tag === "array")
     .map((node) =>
@@ -179,6 +223,7 @@ function definitions(nodes: Node[], map: NodeMap): string {
         ? structFnDefinition(node)
         : arrayFnDefinition(node, map)
     )
+    .concat(destroy)
     .map((v) => `${v};`)
     .join("\n");
 }

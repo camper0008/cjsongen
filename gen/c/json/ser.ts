@@ -55,12 +55,12 @@ function defineFieldStatement(field: ArrayNode | StructNode): string {
     case "struct": {
       const fn = fnName(field);
       const name = toFieldName(field.key);
-      return `  char* ${name} = ${fn}(model->${name});\n`;
+      return `  char* _${name} = ${fn}(model->${name});\n`;
     }
     case "array": {
       const fn = fnName(field);
       const name = toFieldName(field.key);
-      return `  char* ${name} = ${fn}(model->${name}, model->${name}_size);\n`;
+      return `  char* _${name} = ${fn}(model->${name}, model->${name}_size);\n`;
     }
     default:
       assertUnreachable(field);
@@ -68,13 +68,13 @@ function defineFieldStatement(field: ArrayNode | StructNode): string {
 }
 
 function freeStatement(field: ArrayNode | StructNode): string {
-  return `  free(${toFieldName(field.key)});\n`;
+  return `  free(_${toFieldName(field.key)});\n`;
 }
 function formatFieldSpread(fields: Node[]): string {
   return fields
     .map((field) => {
       if (field.tag !== "primitive") {
-        return toFieldName(field.key);
+        return `_${toFieldName(field.key)}`;
       }
       switch (field.type) {
         case "str":
@@ -120,7 +120,7 @@ function formatVariableStatement(node: StructNode, map: NodeMap): string {
     return `\\"${toFieldName(node.key)}\\":${fmt}`;
   }
   let res = "";
-  res += `const char* _format = "{`;
+  res += `const char* format = "{`;
   const fields = node.fields
     .map((key) => map.get(key))
     .map((node) => nodeFormat(node))
@@ -209,7 +209,7 @@ function arraySerializer(
 
   res += "  if (size == 0) {\n";
   res += "    char* buffer = malloc(3);\n";
-  res += "    *buffer = { '[', ']', '\0' };\n";
+  res += "    *buffer = { '[', ']', '\\0' };\n";
   res += "    return buffer;\n";
   res += "  }\n";
 
@@ -269,11 +269,11 @@ function structSerializer(
     .filter((node) => node.tag !== "primitive")
     .map(defineFieldStatement)
     .join("");
-  res += `  size_t _size = snprintf(NULL, 0, _format, ${
+  res += `  size_t size = snprintf(NULL, 0, format, ${
     formatFieldSpread(node.fields.map((key) => map.get(key)))
   });\n`;
-  res += `  char* _buffer = malloc(_size + 1);\n`;
-  res += `  sprintf(_buffer, _format, ${
+  res += `  char* buffer = malloc(size + 1);\n`;
+  res += `  sprintf(buffer, format, ${
     formatFieldSpread(node.fields.map((key) => map.get(key)))
   });\n`;
   res += node.fields
@@ -281,7 +281,7 @@ function structSerializer(
     .filter((node) => node.tag !== "primitive")
     .map(freeStatement)
     .join("");
-  res += `  return _buffer;\n`;
+  res += `  return buffer;\n`;
   res += "}";
   return res;
 }
