@@ -26,7 +26,7 @@ if (import.meta.main) {
     useColor,
   );
   print();
-  print(tree.map(gen.c.json.serializerDef).join("\n\n"), useColor);
+  print(tree.map(gen.c.json.deserializerDef).join("\n\n"), useColor);
   print();
-  print(tree.map(gen.c.json.serializerImpl).join("\n\n"), useColor);
+  print(tree.map(gen.c.json.deserializerImpl).join("\n\n"), useColor);
 }

@@ -1,5 +1,10 @@
 import { assertUnreachable } from "../../../assert.ts";
-import { ArrayNode, Node, StructNode } from "../../../repr/node.ts";
+import {
+  ArrayNode,
+  Node,
+  PrimitiveNode,
+  StructNode,
+} from "../../../repr/node.ts";
 import { NodeMap, toFieldName, toTypeName } from "../common.ts";
 import { toFnName } from "./common.ts";
 
@@ -7,25 +12,26 @@ function returnIfNotOk(): string {
   return "if (res != DbCtxResult_Ok) { return res; }";
 }
 
-function destroyFn(node: Node): string | null {
+function destroyPrimitiveFn(node: PrimitiveNode): string | null {
+  switch (node.type) {
+    case "str":
+      return "de_ctx_destroy_str";
+    case "int":
+      return null;
+    case "bool":
+      return null;
+    default:
+      return assertUnreachable(node.type);
+  }
+}
+
+function destroyComplexFn(node: StructNode | ArrayNode): string {
   switch (node.tag) {
     case "struct": {
       return `${toFnName(node.key)}_destroy`;
     }
     case "array": {
       return `${toFnName(node.key)}_destroy_array`;
-    }
-    case "primitive": {
-      switch (node.type) {
-        case "str":
-          return "de_ctx_destroy_str";
-        case "int":
-          return null;
-        case "bool":
-          return null;
-        default:
-          return assertUnreachable(node.type);
-      }
     }
     default:
       assertUnreachable(node);
@@ -88,7 +94,7 @@ function nodeType(node: Node): string {
 
 function destroyArrayFnDefinition(node: ArrayNode, map: NodeMap): string {
   const type = nodeType(map.get(node.data));
-  return `void ${destroyFn(node)}(${type}** model, size_t* size)`;
+  return `void ${destroyComplexFn(node)}(${type}* model, size_t size)`;
 }
 
 function arrayFnDefinition(node: ArrayNode, map: NodeMap): string {
@@ -98,10 +104,8 @@ function arrayFnDefinition(node: ArrayNode, map: NodeMap): string {
   }(DeCtx* ctx, ${type}** model, size_t* size)`;
 }
 
-function destroyStructFnDefinition(node: StructNode): string | null {
-  return destroyFn(node)
-    ? `void ${destroyFn(node)}(${toTypeName(node.key)}* model)`
-    : null;
+function destroyStructFnDefinition(node: StructNode): string {
+  return `void ${destroyComplexFn(node)}(${toTypeName(node.key)}* model)`;
 }
 
 function structFnDefinition(node: StructNode): string {
@@ -110,21 +114,45 @@ function structFnDefinition(node: StructNode): string {
   }* model)`;
 }
 
-function defineFieldStatement(
+function defineFieldInitializerStatement(
+  field: Node,
+  indent: number,
+  map: NodeMap,
+): string {
+  const i = " ".repeat(indent * 2);
+  if (field.tag !== "array") {
+    return `${i}${nodeType(field)} _${toFieldName(field.key)};\n`;
+  }
+  const data = map.get(field.data);
+  return `${i}${nodeType(data)}* _${toFieldName(field.key)};\n` +
+    `${i}size_t _${toFieldName(field.key)}_size;\n`;
+}
+
+function defineFieldGetStatement(
   field: Node,
   indent: number,
   idx: number,
 ): string {
+  function includes(node: Node): string {
+    if (node.tag === "primitive") {
+      return `, "${node.key}"`;
+    } else if (node.tag === "array") {
+      return `, &_${toFieldName(node.key)}_size`;
+    } else if (node.tag === "struct") {
+      return "";
+    }
+    return assertUnreachable(node);
+  }
+
   const i = " ".repeat(indent * 2);
   const i2 = " ".repeat((indent + 1) * 2);
   const fn = fromJsonFn(field);
   const name = toFieldName(field.key);
   const elseOrIndent = idx === 0 ? i : "else ";
-  const includeKey = field.tag === "primitive" ? `, "${field.key}"` : "";
   return "" +
     `${elseOrIndent}if (strcmp(key, "${name}") == 0) {\n` +
     `${i2}found_fields_bitmask |= (1 << ${idx});\n` +
-    `${i2}res = ${fn}(ctx, &model->${name}${includeKey});\n` +
+    `${i2}res = ${fn}(ctx, &_${name}${includes(field)});\n` +
     `${i2}${returnIfNotOk()}\n` +
     `${i}} `;
 }
@@ -165,6 +193,11 @@ function structDeserializer(
   res += "  DeCtxResult res;\n";
   res += `  res = de_ctx_expect_char(ctx, '{', "${node.key}");\n`;
   res += `  ${returnIfNotOk()}\n`;
+  res += "\n";
+  res += node.fields
+    .map((field) => map.get(field))
+    .map((field) => defineFieldInitializerStatement(field, 1, map));
+  res += "\n";
   res += `  size_t found_fields_bitmask = 0;\n`;
   res += `  while (true) {\n`;
   res += `    char* key;\n`;
@@ -176,7 +209,7 @@ function structDeserializer(
   res += "\n";
   res += node.fields
     .map((key) => map.get(key))
-    .map((x, i) => defineFieldStatement(x, 2, i))
+    .map((x, i) => defineFieldGetStatement(x, 2, i))
     .join("");
   res += "else {\n";
   res +=
