@@ -249,7 +249,7 @@ function arraySerializer(
   res += "  memcpy(temp, buffer, buffer_size + 1);\n";
   res += '  buffer_size = snprintf(NULL, 0, "%s]", buffer);\n';
   res += "  buffer = realloc(buffer, buffer_size + 1);\n";
-  res += '  sprintf(buffer, "%s]", temp_buffer);\n';
+  res += '  sprintf(buffer, "%s]", temp);\n';
   res += "  free(temp);\n";
 
   res += `  return buffer;\n`;
