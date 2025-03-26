@@ -30,6 +30,51 @@ class OutputDeExt extends Output {
         }
     }
 
+    __structFieldsDestroyStatements(
+        node: StructNode,
+        map: NodeMap,
+    ): void {
+        node.fields
+            .map((field) => map.get(field))
+            .forEach((field) => this.__fieldDestroyStatement(field));
+    }
+
+    private __fieldDestroyStatement(
+        field: Node,
+    ): void {
+        switch (field.tag) {
+            case "struct":
+                this.push(
+                    `${destroyComplexFn(field)}(&model->${
+                        toFieldName(field.key)
+                    });`,
+                );
+                break;
+            case "primitive":
+                switch (field.type) {
+                    case "int":
+                    case "bool":
+                        break;
+                    case "str":
+                        this.push(`free(model->${toFieldName(field.key)});`);
+                        break;
+                    default:
+                        assertUnreachable(field.type);
+                }
+                break;
+            case "array": {
+                this.push(
+                    `${destroyComplexFn(field)}(model->${
+                        toFieldName(field.key)
+                    }, model->${toFieldName(field.key)}_size);`,
+                );
+                break;
+            }
+            default:
+                assertUnreachable(field);
+        }
+    }
+
     structFieldsDestroyStatements(
         node: StructNode,
         map: NodeMap,
@@ -45,7 +90,7 @@ class OutputDeExt extends Output {
         switch (field.tag) {
             case "struct":
                 this.push(
-                    `${destroyComplexFn(field)}(_${toFieldName(field.key)});`,
+                    `${destroyComplexFn(field)}(&_${toFieldName(field.key)});`,
                 );
                 break;
             case "primitive":
@@ -179,6 +224,12 @@ class OutputDeExt extends Output {
         } else {
             this.closeAndBegin(`} else if (strcmp(key, "${name}") == 0) {`);
         }
+
+        this.begin(`if (found_fields[${idx}]) {`);
+        {
+            this.fieldDestroyStatement(field);
+        }
+        this.close("}");
         this.push(`found_fields[${idx}] = true;`);
         this.push(`res = ${fn}(ctx, &_${name}${includes(field)});`);
         this.destroyIfNotOk(node);
@@ -287,6 +338,18 @@ function structFnDefinition(node: StructNode): string {
     }* model)`;
 }
 
+function structDestroyer(
+    node: StructNode,
+    map: NodeMap,
+): Output {
+    const out = new OutputDeExt();
+
+    out.begin(`${destroyStructFnDefinition(node)} {`);
+    out.__structFieldsDestroyStatements(node, map);
+    out.close("}");
+    return out;
+}
+
 function arrayDestroyer(
     node: ArrayNode,
     map: NodeMap,
@@ -393,19 +456,6 @@ function structDeserializer(
     map: NodeMap,
 ): Output {
     const out = new OutputDeExt();
-
-    {
-        out.push(
-            "// WARNING: current implementation does not free allocated values if",
-        );
-        out.push(
-            '// keys are duplicated. i.e. {"key": "val1", "key": "val2"}',
-        );
-        out.push(
-            '// will not deallocate "val1" - same goes for structs and arrays',
-        );
-    }
-
     out.begin(`${structFnDefinition(node)} {`);
     out.push("DeCtxResult res;");
     out.push(`res = de_ctx_expect_char(ctx, '{', "${node.key}");`);
@@ -515,7 +565,7 @@ function implementations(nodes: Node[], map: NodeMap): string {
         .filter((node) => node.tag === "struct" || node.tag === "array")
         .flatMap((node) =>
             node.tag === "struct"
-                ? [structDeserializer(node, map)]
+                ? [structDestroyer(node, map), structDeserializer(node, map)]
                 : [arrayDestroyer(node, map), arrayDeserializer(node, map)]
         )
         .map((ind) => ind.eval())
