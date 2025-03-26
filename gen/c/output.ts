@@ -1,10 +1,19 @@
-type IndentItem = { tag: "begin" | "line" | "close"; line: string };
+import { assertUnreachable } from "../../assert.ts";
 
-export class Indent {
+type IndentItem = {
+    tag: "begin" | "line" | "close" | "close_and_begin";
+    line: string;
+};
+
+export class Output {
     items: IndentItem[] = [];
 
     begin(line: string): void {
         this.items.push({ tag: "begin", line });
+    }
+
+    closeAndBegin(line: string): void {
+        this.items.push({ tag: "close_and_begin", line });
     }
 
     push(line: string): void {
@@ -16,6 +25,10 @@ export class Indent {
     }
 
     private formatted(line: string, level: number): string {
+        if (level < 0) {
+            console.log("close() not begun");
+            return `${line} (errored)\n`;
+        }
         const ind = "    ".repeat(level);
         return `${ind}${line}\n`;
     }
@@ -39,12 +52,19 @@ export class Indent {
                     level -= 1;
                     result += this.formatted(item.line, level);
                     break;
+
+                case "close_and_begin":
+                    level -= 1;
+                    result += this.formatted(item.line, level);
+                    level += 1;
+                    break;
+
                 default:
                     assertUnreachable(item.tag);
             }
         }
         if (level > 0) {
-            console.log("_begin not ended");
+            console.log("begin() not closed");
         }
         return result;
     }

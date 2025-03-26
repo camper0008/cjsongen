@@ -8,8 +8,6 @@ static inline char map_escaped_char(char in);
 
 void de_str_construct(DeStr* str)
 {
-    assert(str->content == NULL);
-
     str->content = malloc(64);
     str->capacity = 64;
     str->len = 0;
@@ -17,7 +15,6 @@ void de_str_construct(DeStr* str)
 
 void de_str_push(DeStr* str, char ch)
 {
-    assert(str->content != NULL);
     if (str->len >= str->capacity) {
         str->capacity *= 2;
         str->content = realloc(str->content, str->capacity);
@@ -28,24 +25,19 @@ void de_str_push(DeStr* str, char ch)
 
 void de_str_copy_to_c_str(DeStr* str, char** dest)
 {
-    assert(str->content != NULL);
-    assert(*dest == NULL);
-
     *dest = malloc(str->len + 1);
     memcpy(*dest, str->content, str->len);
-    *dest[str->len] = '\0';
+    (*dest)[str->len] = '\0';
 }
 
 void de_str_destroy(DeStr* str)
 {
-    assert(str->content != NULL);
     free(str->content);
     str->content = NULL;
 }
 
 void de_ctx_construct(DeCtx* ctx, const char* input, size_t len)
 {
-    assert(ctx->error == NULL);
     ctx->input = input;
     ctx->error = malloc(DE_CTX_ERROR_SIZE + 1);
     ctx->idx = 0;
@@ -257,8 +249,6 @@ DeCtxResult de_ctx_deserialize_str(DeCtx* ctx, char** out, const char* parsing)
         de_str_destroy(&parsed);
         return de_ctx_expect_not_done(ctx, parsing);
     }
-
-    ctx->idx += 1;
 
     de_str_copy_to_c_str(&parsed, out);
     de_str_destroy(&parsed);

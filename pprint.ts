@@ -6,7 +6,7 @@ function isPrimitiveCType(word: string): boolean {
     return ["char", "int64_t", "bool", "void", "size_t", "true", "false"]
         .includes(
             word,
-        ) || "0123456789".startsWith(word[0]);
+        ) || "0123456789".includes(word[0]);
 }
 
 function isPtr(word: string): boolean {
@@ -36,8 +36,14 @@ function isString(word: string): boolean {
     return false;
 }
 
+function isLabel(word: string): boolean {
+    return word.endsWith(":");
+}
+
 function isCKeyword(word: string): boolean {
     return [
+        "for",
+        "goto",
         "if",
         "else",
         "break",
@@ -123,6 +129,7 @@ export function printC(input: string, color: boolean) {
         [isPtr, colorCss("yellow")],
         [isRef, colorCss("blue")],
         [isSpecialFunction, colorCss("blue")],
+        [isLabel, colorCss("#8ec07c")],
     ];
 
     const [format, styles] = colorizer(input.replaceAll("%", "%%"), {

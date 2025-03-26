@@ -1,7 +1,7 @@
 import { assertUnreachable } from "../../../assert.ts";
 import { ArrayNode, Node, StructNode } from "../../../repr/node.ts";
 import { NodeMap, toFieldName, toTypeName } from "../common.ts";
-import { Indent } from "../indent.ts";
+import { Output } from "../output.ts";
 import { FnNameNode, toFnName } from "./common.ts";
 
 function fnName(node: FnNameNode): string {
@@ -202,71 +202,70 @@ function arrayItemFormatValue(
 function arraySerializer(
     node: ArrayNode,
     map: NodeMap,
-): Indent {
+): Output {
     const data = map.get(node.data);
     const fmt = arrayItemFormatString(data);
     const fmtValue = (i: string | number) =>
         arrayItemFormatValue(data, i.toString());
-    const ind = new Indent();
-    ind.begin(`${arrayFnDefinition(node, map)} {`);
+    const out = new Output();
+    out.begin(`${arrayFnDefinition(node, map)} {`);
 
-    let res = "";
-
-    ind.begin("if (size == 0) {");
-    ind.push("char* buffer = malloc(3);");
-    ind.push("*buffer = { '[', ']', '\\0' };");
-    ind.push("return buffer;");
-    ind.close("}");
+    out.begin("if (size == 0) {");
+    out.push("char* buffer = malloc(3);");
+    out.push("*buffer = { '[', ']', '\\0' };");
+    out.push("return buffer;");
+    out.close("}");
 
     if (data.tag !== "primitive") {
-        ind.push(`${arrayItemDefineValue(data, 0)};`);
+        out.push(`${arrayItemDefineValue(data, 0)};`);
     }
-    ind.push(
+    out.push(
         `size_t buffer_size = snprintf(NULL, 0, "[${fmt}", ${fmtValue(0)});`,
     );
 
-    ind.push(`char* buffer = malloc(buffer_size + 1);`);
-    ind.push("char* buffer = malloc(buffer_size + 1);");
-    ind.push(`sprintf(buffer, "[${fmt}", ${fmtValue(0)});`);
+    out.push(`char* buffer = malloc(buffer_size + 1);`);
+    out.push("char* buffer = malloc(buffer_size + 1);");
+    out.push(`sprintf(buffer, "[${fmt}", ${fmtValue(0)});`);
     if (data.tag !== "primitive") {
-        ind.push("free(value);");
+        out.push("free(value);");
     }
 
-    ind.begin("for (size_t i = 1; i < size; ++i) {");
+    out.begin("for (size_t i = 1; i < size; ++i) {");
     if (data.tag !== "primitive") {
-        ind.push(`${arrayItemDefineValue(data, "i")};`);
+        out.push(`${arrayItemDefineValue(data, "i")};`);
     }
-    ind.push("char* temp = malloc(buffer_size + 1);");
-    ind.push("memcpy(temp, buffer, buffer_size + 1);");
-    ind.push("");
-    ind.push(
+    out.push("char* temp = malloc(buffer_size + 1);");
+    out.push("memcpy(temp, buffer, buffer_size + 1);");
+    out.push("");
+    out.push(
         `buffer_size = snprintf(NULL, 0, "%s,${fmt}", buffer, ${
             fmtValue("i")
         });`,
     );
-    ind.push("buffer = realloc(buffer, buffer_size + 1);");
-    ind.push(`sprintf(buffer, "%s,${fmt}", temp, ${fmtValue("i")});`);
+    out.push("buffer = realloc(buffer, buffer_size + 1);");
+    out.push(`sprintf(buffer, "%s,${fmt}", temp, ${fmtValue("i")});`);
     if (data.tag !== "primitive") {
-        ind.push("free(value);");
+        out.push("free(value);");
     }
-    ind.push("free(temp);");
-    ind.close("}");
-    ind.push("char* temp = malloc(buffer_size + 1);");
-    ind.push("memcpy(temp, buffer, buffer_size + 1);");
-    ind.push('buffer_size = snprintf(NULL, 0, "%s]", buffer);');
-    ind.push("buffer = realloc(buffer, buffer_size + 1);");
-    ind.push('sprintf(buffer, "%s]", temp);');
-    ind.push("free(temp);");
-    ind.push("return buffer;");
-    ind.close("}");
-    return ind;
+    out.push("free(temp);");
+    out.close("}");
+    out.push("char* temp = malloc(buffer_size + 1);");
+    out.push("memcpy(temp, buffer, buffer_size + 1);");
+    out.push("");
+    out.push('buffer_size = snprintf(NULL, 0, "%s]", buffer);');
+    out.push("buffer = realloc(buffer, buffer_size + 1);");
+    out.push('sprintf(buffer, "%s]", temp);');
+    out.push("free(temp);");
+    out.push("return buffer;");
+    out.close("}");
+    return out;
 }
 
 function structSerializer(
     node: StructNode,
     map: NodeMap,
-): Indent {
-    const ind = new Indent();
+): Output {
+    const ind = new Output();
 
     ind.begin(`${structFnDefinition(node)} {`);
     ind.push(`${formatVariableStatement(node, map)};`);
@@ -318,6 +317,6 @@ export function serializerImpl(nodes: Node[]): string {
                 ? structSerializer(node, map)
                 : arraySerializer(node, map)
         )
-        .map((v) => v.eval())
-        .join("\n\n");
+        .map((ind) => ind.eval())
+        .join("\n");
 }
