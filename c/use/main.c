@@ -293,4 +293,5 @@ int main(void)
     for (size_t i = 0; i < inv.names_size; ++i) {
         printf("name: %s\n", inv.names[i]);
     }
+    invitation_destroy(&inv);
 }
