@@ -12,6 +12,9 @@ if (import.meta.main) {
         {
             name: "invitation",
             values: {
+                yes: {
+                    "no": "str",
+                },
                 names: ["str"],
             },
         },

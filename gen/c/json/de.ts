@@ -10,27 +10,69 @@ import { Output } from "../output.ts";
 import { toFnName } from "./common.ts";
 
 class OutputDeExt extends Output {
-    constructor() {
-        super();
-    }
-
     returnIfNotOk(): void {
         this.push("if (res != DeCtxResult_Ok) { return res; }");
     }
 
     destroyIfNotOk(node: ArrayNode | StructNode): void {
-        this.begin("if (res != DeCtxResult_Ok) {");
-        const fn = destroyComplexFn(node);
         switch (node.tag) {
-            case "array":
+            case "array": {
+                const fn = destroyComplexFn(node);
+                this.begin("if (res != DeCtxResult_Ok) {");
                 this.push(`${fn}(*model, *size);`);
+                this.push("return res;");
+                this.close("}");
                 break;
+            }
             case "struct":
-                this.push(`${fn}(model);`);
+                this.push("if (res != DeCtxResult_Ok) { goto drop; }");
                 break;
         }
-        this.push("return res;");
-        this.close("}");
+    }
+
+    structFieldsDestroyStatements(
+        node: StructNode,
+        map: NodeMap,
+    ): void {
+        node.fields
+            .map((field) => map.get(field))
+            .forEach((field) => this.fieldDestroyStatement(field));
+    }
+
+    private fieldDestroyStatement(
+        field: Node,
+    ): void {
+        switch (field.tag) {
+            case "struct":
+                this.push(
+                    `${destroyComplexFn(field)}(_${toFieldName(field.key)});`,
+                );
+                break;
+            case "primitive":
+                switch (field.type) {
+                    case "int":
+                    case "bool":
+                        break;
+                    case "str":
+                        this.begin(`if (_${toFieldName(field.key)} != NULL) {`);
+                        this.push(`free(_${toFieldName(field.key)});`);
+                        this.close(`}`);
+                        break;
+                    default:
+                        assertUnreachable(field.type);
+                }
+                break;
+            case "array": {
+                this.push(
+                    `${destroyComplexFn(field)}(_${toFieldName(field.key)}, _${
+                        toFieldName(field.key)
+                    }_size);`,
+                );
+                break;
+            }
+            default:
+                assertUnreachable(field);
+        }
     }
 
     structFieldsInitStatements(
@@ -42,7 +84,49 @@ class OutputDeExt extends Output {
             .forEach((field) => this.fieldInitStatement(field, map));
     }
 
-    structFieldsSetStatements(
+    private fieldInitStatement(
+        field: Node,
+        map: NodeMap,
+    ): void {
+        switch (field.tag) {
+            case "struct":
+                this.push(
+                    `${nodeType(field)} _${toFieldName(field.key)} = { 0 };`,
+                );
+                break;
+            case "primitive":
+                switch (field.type) {
+                    case "str":
+                        this.push(
+                            `${nodeType(field)} _${
+                                toFieldName(field.key)
+                            } = NULL;`,
+                        );
+                        break;
+                    case "int":
+                    case "bool":
+                        this.push(
+                            `${nodeType(field)} _${toFieldName(field.key)};`,
+                        );
+                        break;
+                    default:
+                        assertUnreachable(field.type);
+                }
+                break;
+            case "array": {
+                const data = map.get(field.data);
+                this.push(
+                    `${nodeType(data)}* _${toFieldName(field.key)} = NULL;`,
+                );
+                this.push(`size_t _${toFieldName(field.key)}_size = 0;`);
+                break;
+            }
+            default:
+                assertUnreachable(field);
+        }
+    }
+
+    fieldsSetStatements(
         node: StructNode,
         map: NodeMap,
     ): void {
@@ -61,16 +145,19 @@ class OutputDeExt extends Output {
         }
     }
 
-    structFieldsGetStatements(
+    fieldsDeserializeStatements(
         node: StructNode,
         map: NodeMap,
     ): void {
         node.fields
             .map((field) => map.get(field))
-            .forEach((field, i) => this.fieldGetStatement(field, i));
+            .forEach((field, i) =>
+                this.fieldDeserializeStatement(node, field, i)
+            );
     }
 
-    private fieldGetStatement(
+    private fieldDeserializeStatement(
+        node: StructNode,
         field: Node,
         idx: number,
     ): void {
@@ -92,22 +179,9 @@ class OutputDeExt extends Output {
         } else {
             this.closeAndBegin(`} else if (strcmp(key, "${name}") == 0) {`);
         }
-        this.push(`found_fields_bitmask |= (1 << ${idx});`);
+        this.push(`found_fields[${idx}] = true;`);
         this.push(`res = ${fn}(ctx, &_${name}${includes(field)});`);
-        this.returnIfNotOk();
-    }
-
-    private fieldInitStatement(
-        field: Node,
-        map: NodeMap,
-    ): void {
-        if (field.tag !== "array") {
-            this.push(`${nodeType(field)} _${toFieldName(field.key)};`);
-            return;
-        }
-        const data = map.get(field.data);
-        this.push(`${nodeType(data)}* _${toFieldName(field.key)};`);
-        this.push(`size_t _${toFieldName(field.key)}_size;`);
+        this.destroyIfNotOk(node);
     }
 }
 
@@ -222,6 +296,10 @@ function arrayDestroyer(
 
     out.begin(`${destroyArrayFnDefinition(node, map)} {`);
 
+    out.begin("if (model == NULL) {");
+    out.push("return;");
+    out.close("}");
+
     const hasDestroyFn = data.tag !== "primitive" ||
         destroyPrimitiveFn(data) !== null;
     if (!hasDestroyFn) {
@@ -326,7 +404,6 @@ function structDeserializer(
         out.push(
             '// will not deallocate "val1" - same goes for structs and arrays',
         );
-        out.push("// or if an error occurs during parsing");
     }
 
     out.begin(`${structFnDefinition(node)} {`);
@@ -334,51 +411,80 @@ function structDeserializer(
     out.push(`res = de_ctx_expect_char(ctx, '{', "${node.key}");`);
     out.returnIfNotOk();
     out.push(`ctx->idx += 1;`);
+    out.push("");
     out.structFieldsInitStatements(node, map);
-    out.push(`size_t found_fields_bitmask = 0;\n`);
-    out.begin(`while (true) {\n`);
-    out.push(`char* key;`);
-    out.push(`res = de_ctx_deserialize_str(ctx, &key, "${node.key}");\n`);
-    out.returnIfNotOk();
-    out.push(`res = de_ctx_expect_char(ctx, ':', "${node.key}");\n`);
-    out.returnIfNotOk();
-    out.push("ctx->idx += 1;");
+    out.push("");
+    out.push(`bool found_fields[${node.fields.length}] = { false };`);
+    out.push(`char* key = NULL;`);
+    out.begin(`while (true) {`);
+    {
+        out.push(`res = de_ctx_deserialize_str(ctx, &key, "${node.key}");`);
+        out.destroyIfNotOk(node);
+        out.push(`res = de_ctx_expect_char(ctx, ':', "${node.key}");`);
+        out.destroyIfNotOk(node);
+        out.push("ctx->idx += 1;");
+        {
+            out.fieldsDeserializeStatements(node, map);
+            out.closeAndBegin("} else {");
+            out.push(
+                "snprintf(ctx->error, DE_CTX_ERROR_SIZE, \"got invalid key '%s'\", key);",
+            );
+            out.push("res = DeCtxResult_BadInput;");
+            out.push("goto drop;");
+            out.close("}");
+        }
+        out.push(`res = de_ctx_expect_not_done(ctx, "${node.key}");`);
+        out.returnIfNotOk();
+        out.push(`char curr = ctx->input[ctx->idx];`);
 
-    out.structFieldsGetStatements(node, map);
-    out.closeAndBegin("} else {");
-    out.push(
-        "snprintf(ctx->error, DE_CTX_ERROR_SIZE, \"got invalid key '%s'\", key);",
-    );
-    out.push("free(key);");
-    out.push("return DeCtxResult_BadInput;");
+        out.push(`if (curr == ',') { ctx->idx += 1; continue; }`);
+
+        out.push(`res = de_ctx_expect_char(ctx, '}', "${node.key}");`);
+        out.destroyIfNotOk(node);
+        out.push("ctx->idx += 1;");
+        out.push("break;");
+    }
     out.close("}");
 
-    out.push("free(key);");
-    out.push("de_ctx_skip_whitespace(ctx);");
-    out.push(`res = de_ctx_expect_not_done(ctx, "${node.key}");`);
-    out.returnIfNotOk();
-    out.push(`char curr = ctx->input[ctx->idx];`);
-
-    out.push(`if (curr == ',') { continue; }`);
-
-    out.push(`res = de_ctx_expect_char(ctx, '}', "${node.key}");`);
-    out.returnIfNotOk();
-    out.push("break;");
+    out.push(`bool all_fields_received = true;`);
+    out.begin(`for (size_t i = 0; i < ${node.fields.length}; ++i)`);
+    {
+        out.push(
+            `all_fields_received = all_fields_received && found_fields[i];`,
+        );
+    }
     out.close("}");
 
-    const bitmask = parseInt("1".repeat(node.fields.length), 2);
-
-    out.begin(`if (found_fields_bitmask != ${bitmask}) {`);
+    out.begin(`if (!all_fields_received) {`);
     {
         out.push(
             'snprintf(ctx->error, DE_CTX_ERROR_SIZE, "missing fields");',
         );
-        out.push("return DeCtxResult_BadInput;");
+        out.push("res = DeCtxResult_BadInput;");
+        out.push("goto drop;");
     }
     out.close("}");
-    out.push("ctx->idx += 1;");
-    out.structFieldsSetStatements(node, map);
+
+    out.push("");
+
+    out.push("goto success;");
+    out.begin("drop: {");
+    {
+        out.push("assert(res != DeCtxResult_Ok)");
+        out.structFieldsDestroyStatements(node, map);
+        out.begin("if (key != NULL) {");
+        {
+            out.push("free(key);");
+        }
+        out.close("}");
+        out.push("return res;");
+    }
+    out.close("}");
+
+    out.begin("success: {");
+    out.fieldsSetStatements(node, map);
     out.push("return DeCtxResult_Ok;");
+    out.close("}");
     out.close("}");
     return out;
 }
