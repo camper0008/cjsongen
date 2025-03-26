@@ -497,7 +497,7 @@ function structDeserializer(
     out.close("}");
 
     out.push(`bool all_fields_received = true;`);
-    out.begin(`for (size_t i = 0; i < ${node.fields.length}; ++i)`);
+    out.begin(`for (size_t i = 0; i < ${node.fields.length}; ++i) {`);
     {
         out.push(
             `all_fields_received = all_fields_received && found_fields[i];`,
@@ -520,7 +520,7 @@ function structDeserializer(
     out.push("goto success;");
     out.begin("drop: {");
     {
-        out.push("assert(res != DeCtxResult_Ok)");
+        out.push("assert(res != DeCtxResult_Ok);");
         out.structFieldsDestroyStatements(node, map);
         out.begin("if (key != NULL) {");
         {
