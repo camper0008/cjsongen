@@ -1,0 +1,8 @@
+
+invitation {
+    yes: {
+        no: str,
+    },
+    names: [str],
+}
+
