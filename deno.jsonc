@@ -2,9 +2,6 @@
     "tasks": {
         "dev": "deno run --check --watch main.ts --color"
     },
-    "imports": {
-        "@std/assert": "jsr:@std/assert@1"
-    },
     "fmt": {
         "indentWidth": 4
     }
