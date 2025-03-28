@@ -1,6 +1,6 @@
 import { printC } from "./pprint.ts";
 import { gen, parse, repr } from "./mod.ts";
-import { parseArgs } from "@std/cli/parse-args";
+import { parseArgs } from "jsr:@std/cli/parse-args";
 
 function print(value: string = "", useColor = false) {
     printC(value, useColor);
