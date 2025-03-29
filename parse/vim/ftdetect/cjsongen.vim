@@ -1,1 +1,2 @@
-autocmd BufNewFile,BufRead *.cjsongen setfiletype slige
+autocmd BufNewFile,BufRead *.cjsongen setfiletype cjsongen
+
