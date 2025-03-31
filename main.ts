@@ -1,16 +1,15 @@
-import { printC } from "./pprint.ts";
+import { printSql } from "./pprint.ts";
 import { gen, parse, repr } from "./mod.ts";
 import { parseArgs } from "jsr:@std/cli/parse-args";
 
 function print(value: string = "", useColor = false) {
-    printC(value, useColor);
+    printSql(value, useColor);
 }
 
 if (import.meta.main) {
     const flags = parseArgs(Deno.args, {
         boolean: ["color"],
     });
-    console.log(flags);
     if (flags._.length !== 1 && typeof flags._[0] !== "string") {
         console.error("error: no def-file specified");
         Deno.exit(1);
@@ -31,11 +30,7 @@ if (import.meta.main) {
         .map(repr.fromMir);
 
     print(
-        tree.map(gen.c.typedef.structDef).join("\n\n"),
+        tree.map(gen.sql.sqlite.create).join("\n\n"),
         useColor,
     );
-    print();
-    print(tree.map(gen.c.json.deserializerDef).join("\n\n"), useColor);
-    print();
-    print(tree.map(gen.c.json.deserializerImpl).join("\n\n"), useColor);
 }
