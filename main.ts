@@ -8,13 +8,14 @@ function print(value: string = "", useColor = false) {
 
 if (import.meta.main) {
     const flags = parseArgs(Deno.args, {
-        boolean: ["--color"],
+        boolean: ["color"],
     });
+    console.log(flags);
     if (flags._.length !== 1 && typeof flags._[0] !== "string") {
         console.error("error: no def-file specified");
         Deno.exit(1);
     }
-    const filename = flags._[0] as "string";
+    const filename = flags._[0] as string;
 
     const parseRes = await parse.parseFile(filename);
     if (!parseRes.ok) {
@@ -23,7 +24,7 @@ if (import.meta.main) {
     }
     const def = parseRes.defs;
 
-    const useColor = flags["--color"];
+    const useColor = flags.color;
 
     const tree = def
         .map(repr.mir.fromHir)

@@ -1,6 +1,6 @@
 {
     "tasks": {
-        "dev": "deno run --check --watch main.ts --color"
+        "dev": "deno run --check --watch --allow-read main.ts --color"
     },
     "fmt": {
         "indentWidth": 4

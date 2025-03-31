@@ -9,17 +9,17 @@ function isPrimitiveCType(word: string): boolean {
         ) || "0123456789".includes(word[0]);
 }
 
-function isPtr(word: string): boolean {
+function isCPtr(word: string): boolean {
     const allowed = "*";
     return word.split("").every((c) => allowed.includes(c));
 }
 
-function isSpecialFunction(word: string): boolean {
+function isCSpecialFunction(word: string): boolean {
     return ["assert", "sizeof", "free", "malloc", "sprintf", "snprintf"]
         .includes(word);
 }
 
-function isRef(word: string): boolean {
+function isCRef(word: string): boolean {
     const allowed = "&";
     return word.split("").every((c) => allowed.includes(c));
 }
@@ -31,13 +31,26 @@ function isComplexCType(word: string): boolean {
     return isComplex;
 }
 
+function isSqlKeyword(word: string): boolean {
+    return [
+        "CREATE",
+        "IF",
+        "NOT",
+        "EXISTS",
+        "VALUES",
+        "INSERT",
+        "INTO",
+    ]
+        .includes(word);
+}
+
 function isString(word: string): boolean {
     if (word.startsWith('"') && word.endsWith('"')) return true;
     if (word.startsWith("'") && word.endsWith("'")) return true;
     return false;
 }
 
-function isLabel(word: string): boolean {
+function isCLabel(word: string): boolean {
     return word.endsWith(":");
 }
 
@@ -118,6 +131,22 @@ function colorizer(
     return [format, styles];
 }
 
+export function printSql(input: string, color: boolean) {
+    if (!color) {
+        return console.log(input.replaceAll("%", "%%"));
+    }
+    const predicates: PredicateList = [
+        [isString, colorCss("green")],
+        [isSqlKeyword, colorCss("red")],
+    ];
+
+    const [format, styles] = colorizer(input.replaceAll("%", "%%"), {
+        seperatorCharacters: "() \r\t\n",
+        predicates,
+    });
+    return console.log(format, ...styles);
+}
+
 export function printC(input: string, color: boolean) {
     if (!color) {
         return console.log(input.replaceAll("%", "%%"));
@@ -127,10 +156,10 @@ export function printC(input: string, color: boolean) {
         [isPrimitiveCType, colorCss("#8ec07c")],
         [isComplexCType, colorCss("#cf8693")],
         [isString, colorCss("green")],
-        [isPtr, colorCss("yellow")],
-        [isRef, colorCss("blue")],
-        [isSpecialFunction, colorCss("blue")],
-        [isLabel, colorCss("#8ec07c")],
+        [isCPtr, colorCss("yellow")],
+        [isCRef, colorCss("blue")],
+        [isCSpecialFunction, colorCss("blue")],
+        [isCLabel, colorCss("#8ec07c")],
     ];
 
     const [format, styles] = colorizer(input.replaceAll("%", "%%"), {
