@@ -1,7 +1,7 @@
 import { assertUnreachable } from "../../../assert.ts";
 import { ArrayNode, Node, StructNode } from "../../../repr/node.ts";
 import { NodeMap, toFieldName, toTypeName } from "../common.ts";
-import { Output } from "../output.ts";
+import { Output } from "../../output.ts";
 import { FnNameNode, toFnName } from "./common.ts";
 
 function fnName(node: FnNameNode): string {

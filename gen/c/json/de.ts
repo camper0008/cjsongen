@@ -6,7 +6,7 @@ import {
     StructNode,
 } from "../../../repr/node.ts";
 import { NodeMap, toFieldName, toTypeName } from "../common.ts";
-import { Output } from "../output.ts";
+import { Output } from "../../output.ts";
 import { toFnName } from "./common.ts";
 
 class OutputDeExt extends Output {

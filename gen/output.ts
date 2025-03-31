@@ -1,4 +1,4 @@
-import { assertUnreachable } from "../../assert.ts";
+import { assertUnreachable } from "../assert.ts";
 
 type IndentItem = {
     tag: "begin" | "line" | "close" | "close_and_begin";
