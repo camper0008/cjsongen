@@ -1,24 +1,10 @@
 import { assertUnreachable, fatal } from "../../assert.ts";
 import { Node } from "../../repr/node.ts";
+import { NodeMap } from "../nodemap.ts";
 
-export class NodeMap {
-    inner: Map<string, Node>;
-
+export class CNodeMap extends NodeMap {
     constructor(nodes: Node[]) {
-        this.inner = new Map();
-        for (const node of nodes) {
-            if (this.inner.has(node.key)) {
-                fatal(`encountered duplicate name '${node.key}'`);
-            }
-            this.inner.set(node.key, node);
-        }
-    }
-    get(key: string): Node {
-        const gotten = this.inner.get(key);
-        if (!gotten) {
-            fatal(`encountered non-existant node '${key}'`);
-        }
-        return gotten;
+        super(nodes);
     }
     getType(key: string): string {
         const node = this.get(key);

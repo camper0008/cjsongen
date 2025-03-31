@@ -1,16 +1,16 @@
 import { assertUnreachable } from "../../assert.ts";
 import { Node, StructNode } from "../../repr/node.ts";
-import { NodeMap, toFieldName, toTypeName } from "./common.ts";
+import { CNodeMap, toFieldName, toTypeName } from "./common.ts";
 import { Output } from "../output.ts";
 
 class OutputTypedefExt extends Output {
-    structFields(node: StructNode, map: NodeMap): void {
+    structFields(node: StructNode, map: CNodeMap): void {
         node.fields
             .map((key) => map.get(key))
             .forEach((node) => this.structField(node, map));
     }
 
-    private structField(node: Node, map: NodeMap): void {
+    private structField(node: Node, map: CNodeMap): void {
         switch (node.tag) {
             case "struct":
                 this.push(`${toTypeName(node.key)} ${toFieldName(node.key)};`);
@@ -44,7 +44,7 @@ class OutputTypedefExt extends Output {
 
 function struct(
     node: StructNode,
-    map: NodeMap,
+    map: CNodeMap,
 ): Output {
     const out = new OutputTypedefExt();
     out.begin("typedef struct {");
@@ -54,7 +54,7 @@ function struct(
 }
 
 export function structDef(node: Node[]): string {
-    const map = new NodeMap(node);
+    const map = new CNodeMap(node);
     return node
         .filter((node) => node.tag === "struct")
         .map((node) => struct(node, map))

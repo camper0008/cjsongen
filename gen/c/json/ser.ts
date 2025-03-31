@@ -1,6 +1,6 @@
 import { assertUnreachable } from "../../../assert.ts";
 import { ArrayNode, Node, StructNode } from "../../../repr/node.ts";
-import { NodeMap, toFieldName, toTypeName } from "../common.ts";
+import { CNodeMap, toFieldName, toTypeName } from "../common.ts";
 import { Output } from "../../output.ts";
 import { FnNameNode, toFnName } from "./common.ts";
 
@@ -17,7 +17,7 @@ function fnName(node: FnNameNode): string {
     }
 }
 
-function arrayFnDefinition(node: ArrayNode, map: NodeMap): string {
+function arrayFnDefinition(node: ArrayNode, map: CNodeMap): string {
     const data = map.get(node.data);
     let type;
     switch (data.tag) {
@@ -92,7 +92,7 @@ function formatFieldSpread(fields: Node[]): string {
         .join(", ");
 }
 
-function formatVariableStatement(node: StructNode, map: NodeMap): string {
+function formatVariableStatement(node: StructNode, map: CNodeMap): string {
     function nodeFormat(node: Node): string {
         let fmt;
         switch (node.tag) {
@@ -201,7 +201,7 @@ function arrayItemFormatValue(
 
 function arraySerializer(
     node: ArrayNode,
-    map: NodeMap,
+    map: CNodeMap,
 ): Output {
     const data = map.get(node.data);
     const fmt = arrayItemFormatString(data);
@@ -263,7 +263,7 @@ function arraySerializer(
 
 function structSerializer(
     node: StructNode,
-    map: NodeMap,
+    map: CNodeMap,
 ): Output {
     const ind = new Output();
 
@@ -296,7 +296,7 @@ function structSerializer(
 }
 
 export function serializerDef(nodes: Node[]): string {
-    const map = new NodeMap(nodes);
+    const map = new CNodeMap(nodes);
     return nodes
         .filter((node) => node.tag === "struct" || node.tag === "array")
         .map((node) =>
@@ -309,7 +309,7 @@ export function serializerDef(nodes: Node[]): string {
 }
 
 export function serializerImpl(nodes: Node[]): string {
-    const map = new NodeMap(nodes);
+    const map = new CNodeMap(nodes);
     return nodes
         .filter((node) => node.tag === "struct" || node.tag === "array")
         .map((node) =>

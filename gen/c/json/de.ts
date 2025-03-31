@@ -5,7 +5,7 @@ import {
     PrimitiveNode,
     StructNode,
 } from "../../../repr/node.ts";
-import { NodeMap, toFieldName, toTypeName } from "../common.ts";
+import { CNodeMap, toFieldName, toTypeName } from "../common.ts";
 import { Output } from "../../output.ts";
 import { toFnName } from "./common.ts";
 
@@ -32,7 +32,7 @@ class OutputDeExt extends Output {
 
     __structFieldsDestroyStatements(
         node: StructNode,
-        map: NodeMap,
+        map: CNodeMap,
     ): void {
         node.fields
             .map((field) => map.get(field))
@@ -77,7 +77,7 @@ class OutputDeExt extends Output {
 
     structFieldsDestroyStatements(
         node: StructNode,
-        map: NodeMap,
+        map: CNodeMap,
     ): void {
         node.fields
             .map((field) => map.get(field))
@@ -122,7 +122,7 @@ class OutputDeExt extends Output {
 
     structFieldsInitStatements(
         node: StructNode,
-        map: NodeMap,
+        map: CNodeMap,
     ): void {
         node.fields
             .map((field) => map.get(field))
@@ -131,7 +131,7 @@ class OutputDeExt extends Output {
 
     private fieldInitStatement(
         field: Node,
-        map: NodeMap,
+        map: CNodeMap,
     ): void {
         switch (field.tag) {
             case "struct":
@@ -173,7 +173,7 @@ class OutputDeExt extends Output {
 
     fieldsSetStatements(
         node: StructNode,
-        map: NodeMap,
+        map: CNodeMap,
     ): void {
         node.fields
             .map((field) => map.get(field))
@@ -192,7 +192,7 @@ class OutputDeExt extends Output {
 
     fieldsDeserializeStatements(
         node: StructNode,
-        map: NodeMap,
+        map: CNodeMap,
     ): void {
         node.fields
             .map((field) => map.get(field))
@@ -316,12 +316,12 @@ function nodeType(node: Node): string {
     return type;
 }
 
-function destroyArrayFnDefinition(node: ArrayNode, map: NodeMap): string {
+function destroyArrayFnDefinition(node: ArrayNode, map: CNodeMap): string {
     const type = nodeType(map.get(node.data));
     return `void ${destroyComplexFn(node)}(${type}* model, size_t size)`;
 }
 
-function arrayFnDefinition(node: ArrayNode, map: NodeMap): string {
+function arrayFnDefinition(node: ArrayNode, map: CNodeMap): string {
     const type = nodeType(map.get(node.data));
     return `DeCtxResult ${
         fromJsonFn(node)
@@ -340,7 +340,7 @@ function structFnDefinition(node: StructNode): string {
 
 function structDestroyer(
     node: StructNode,
-    map: NodeMap,
+    map: CNodeMap,
 ): Output {
     const out = new OutputDeExt();
 
@@ -352,7 +352,7 @@ function structDestroyer(
 
 function arrayDestroyer(
     node: ArrayNode,
-    map: NodeMap,
+    map: CNodeMap,
 ): Output {
     const data = map.get(node.data);
     const out = new OutputDeExt();
@@ -394,7 +394,7 @@ function arrayDestroyer(
 
 function arrayDeserializer(
     node: ArrayNode,
-    map: NodeMap,
+    map: CNodeMap,
 ): Output {
     const data = map.get(node.data);
     const out = new OutputDeExt();
@@ -453,7 +453,7 @@ function arrayDeserializer(
 
 function structDeserializer(
     node: StructNode,
-    map: NodeMap,
+    map: CNodeMap,
 ): Output {
     const out = new OutputDeExt();
     out.begin(`${structFnDefinition(node)} {`);
@@ -539,7 +539,7 @@ function structDeserializer(
     return out;
 }
 
-function definitions(nodes: Node[], map: NodeMap): string {
+function definitions(nodes: Node[], map: CNodeMap): string {
     const destroy = nodes
         .filter((node) => node.tag === "struct" || node.tag === "array")
         .map((node) =>
@@ -560,7 +560,7 @@ function definitions(nodes: Node[], map: NodeMap): string {
         .join("\n");
 }
 
-function implementations(nodes: Node[], map: NodeMap): string {
+function implementations(nodes: Node[], map: CNodeMap): string {
     return nodes
         .filter((node) => node.tag === "struct" || node.tag === "array")
         .flatMap((node) =>
@@ -573,11 +573,11 @@ function implementations(nodes: Node[], map: NodeMap): string {
 }
 
 export function deserializerDef(nodes: Node[]): string {
-    const map = new NodeMap(nodes);
+    const map = new CNodeMap(nodes);
     return definitions(nodes, map);
 }
 
 export function deserializerImpl(nodes: Node[]): string {
-    const map = new NodeMap(nodes);
+    const map = new CNodeMap(nodes);
     return implementations(nodes, map);
 }
