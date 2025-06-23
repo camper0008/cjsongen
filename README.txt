@@ -8,9 +8,10 @@ currently, the goal is to generate C structs and json serialize/deserialize func
 
 roadmap:
 - [x] a HIR i'm satisfied with
-- [x] fix whatever i've got going on for arrays in my LIR
+- [ ] fix whatever i've got going on for arrays in my LIR
 - [x] typedef gen
 - [x] json ser-gen
 - [x] json de-gen
+- [ ] sql statements
 
 see main.ts for example
